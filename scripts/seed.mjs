@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -50,7 +49,6 @@ async function insertReturning(table, rows) {
   if (error) throw new Error(`Insert into ${table} failed: ${error.message}`);
   return data;
 }
-
 
 const CATEGORIES = [
   { name: 'Street Food', image: 'categories/street_food.png', backgroundColor: '#E8DCD9', sortOrder: 0 },
@@ -557,7 +555,90 @@ const RESTAURANTS = [
   },
 ];
 
+async function findUserByEmail(email) {
+  const { data, error } = await supabase.auth.admin.listUsers({ perPage: 200 });
+  if (error) throw new Error(`Could not list users: ${error.message}`);
+  return data.users.find((u) => u.email?.toLowerCase() === email.toLowerCase());
+}
 
+async function linkMerchant(restaurantIds) {
+  const email = process.env.SEED_MERCHANT_EMAIL;
+  if (!email) {
+    console.log('SEED_MERCHANT_EMAIL not set - skipping merchant link.');
+    return;
+  }
+  const user = await findUserByEmail(email);
+  if (!user) {
+    console.warn(`No account found for ${email}. Sign up in the app first, then re-run.`);
+    return;
+  }
+  const rows = restaurantIds.map((restaurantId) => ({
+    restaurant_id: restaurantId,
+    user_id: user.id,
+    role: 'owner',
+  }));
+  const { error } = await supabase.from('restaurant_members').upsert(rows);
+  if (error) throw new Error(`Could not link merchant: ${error.message}`);
+  console.log(`Linked ${email} as owner of ${rows.length} restaurants.`);
+}
+
+async function promoteAdmin() {
+  const email = process.env.SEED_ADMIN_EMAIL;
+  if (!email) {
+    console.log('SEED_ADMIN_EMAIL not set - skipping admin promotion.');
+    return;
+  }
+  const user = await findUserByEmail(email);
+  if (!user) {
+    console.warn(`No account found for ${email}. Sign up in the app first, then re-run.`);
+    return;
+  }
+  const { error } = await supabase.from('profiles').update({ role: 'admin' }).eq('id', user.id);
+  if (error) throw new Error(`Could not promote admin: ${error.message}`);
+  console.log(`Promoted ${email} to admin.`);
+}
+
+async function approveCourier() {
+  const email = process.env.SEED_COURIER_EMAIL;
+  if (!email) {
+    console.log('SEED_COURIER_EMAIL not set - skipping courier approval.');
+    return;
+  }
+  const user = await findUserByEmail(email);
+  if (!user) {
+    console.warn(`No account found for ${email}. Sign up in the app first, then re-run.`);
+    return;
+  }
+
+  const { data: existing } = await supabase
+    .from('couriers')
+    .select('id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (!existing) {
+    const { error } = await supabase.from('couriers').insert({
+      id: user.id,
+      full_name: email.split('@')[0],
+      vehicle_type: 'scooter',
+    });
+    if (error) throw new Error(`Could not create courier: ${error.message}`);
+  }
+
+  const { error } = await supabase
+    .from('couriers')
+    .update({ verification_status: 'approved' })
+    .eq('id', user.id);
+  if (error) throw new Error(`Could not approve courier: ${error.message}`);
+
+  const { error: roleError } = await supabase
+    .from('profiles')
+    .update({ role: 'courier' })
+    .eq('id', user.id);
+  if (roleError) throw new Error(`Could not set courier role: ${roleError.message}`);
+
+  console.log(`Approved ${email} as a courier.`);
+}
 
 async function main() {
   console.log('Uploading category images...');
@@ -667,6 +748,10 @@ async function main() {
     }
     console.log(`  Seeded menu for ${r.name}`);
   }
+
+  await linkMerchant([...restaurantIdByKey.values()]);
+  await promoteAdmin();
+  await approveCourier();
 
   console.log('Seed complete.');
 }

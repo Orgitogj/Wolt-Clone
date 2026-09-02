@@ -12,7 +12,11 @@
       "supportsTablet": true,
       "bundleIdentifier": "com.orgito.WOLT",
       "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSLocationWhenInUseUsageDescription": "We use your location to show nearby restaurants and to share courier position while an order is on its way.",
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
@@ -27,7 +31,9 @@
       "package": "com.orgito.WOLT",
       "permissions": [
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.POST_NOTIFICATIONS",
+        "android.permission.VIBRATE"
       ]
     },
     "web": {
@@ -68,6 +74,21 @@
         "expo-location",
         {
           "locationWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location"
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/icon.png",
+          "color": "#0094DD",
+          "defaultChannel": "default"
+        }
+      ],
+      [
+        "@stripe/stripe-react-native",
+        {
+          "merchantIdentifier": "merchant.com.orgito.WOLT",
+          "enableGooglePay": true
         }
       ]
     ],

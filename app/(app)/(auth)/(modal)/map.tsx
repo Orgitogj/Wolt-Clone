@@ -8,13 +8,14 @@ import { Link, useRouter } from 'expo-router';
 import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
+  Platform,
   ScrollView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_REGION = {
@@ -123,6 +124,7 @@ const Page = () => {
       <MapView
         ref={mapRef}
         style={StyleSheet.absoluteFill}
+        provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
         initialRegion={
           restaurantMarkers?.[0]
             ? {
