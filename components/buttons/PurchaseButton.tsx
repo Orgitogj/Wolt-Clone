@@ -1,19 +1,22 @@
 import { Colors } from '@/constants/theme';
-import Ionicons from '@expo/vector-icons/Ionicons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface PurchaseButtonProps {
   onPress: () => void;
   deliveryTimeSelected: boolean;
   disabled?: boolean;
+  isSubmitting?: boolean;
+  label?: string;
 }
 
 export const PurchaseButton = ({
   onPress,
   deliveryTimeSelected,
   disabled,
+  isSubmitting,
+  label,
 }: PurchaseButtonProps) => {
   const insets = useSafeAreaInsets();
 
@@ -34,13 +37,12 @@ export const PurchaseButton = ({
           onPress={onPress}
           disabled={disabled}
           activeOpacity={0.8}>
-          {deliveryTimeSelected ? (
-            <View style={styles.applePayContent}>
-              <Ionicons name="logo-apple" size={24} color="#fff" />
-              <Text style={styles.applePayText}>Pay</Text>
-            </View>
+          {isSubmitting ? (
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Choose delivery time</Text>
+            <Text style={styles.buttonText}>
+              {deliveryTimeSelected ? (label ?? 'Place order') : 'Choose delivery time'}
+            </Text>
           )}
         </TouchableOpacity>
       </View>
@@ -85,16 +87,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#fff',
-  },
-  applePayContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  applePayText: {
-    fontSize: 18,
     fontWeight: '600',
     color: '#fff',
   },

@@ -6,12 +6,25 @@ import { useCartStore } from '@/hooks/use-cartstore';
 import { useScheduleStore } from '@/hooks/use-schedule-store';
 import { useAddresses } from '@/hooks/useAddresses';
 import { useInvalidateOrderHistory } from '@/hooks/useOrderHistory';
+import { usePayForOrder } from '@/hooks/usePayment';
+import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { orderService } from '@/services/orderService';
+import { createIdempotencyKey } from '@/utils/idempotency';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Stack, useRouter } from 'expo-router';
-import { useState } from 'react';
-import { Alert, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import {
+  Alert,
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import Animated, {
   Extrapolation,
   interpolate,
@@ -31,7 +44,10 @@ const Page = () => {
   const { addresses, addAddress } = useAddresses();
   const { selectedAddressId, selectAddress } = useAddressSelectionStore();
   const { selectedSchedule } = useScheduleStore();
+  const { data: settings } = usePlatformSettings();
   const scrollOffset = useSharedValue(0);
+  const idempotencyKeyRef = useRef<string>(createIdempotencyKey());
+  const { pay, isPaying } = usePayForOrder();
 
   const [deliveryMode, setDeliveryMode] = useState<'delivery' | 'pickup'>('delivery');
   const [leaveAtDoor, setLeaveAtDoor] = useState(false);
@@ -46,6 +62,7 @@ const Page = () => {
   const [showNewAddressForm, setShowNewAddressForm] = useState(false);
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('cash');
 
   const selectedAddress = addresses.find((option) => option.id === selectedAddressId);
 
@@ -67,10 +84,21 @@ const Page = () => {
         )
       : undefined;
 
-  const { serviceFee, deliveryFee } = orderService.calculateFees(total, distanceKm);
+  const { serviceFee, deliveryFee } = useMemo(
+    () => orderService.calculateFees({ settings, deliveryMode, distanceKm }),
+    [settings, deliveryMode, distanceKm]
+  );
   const grandTotal = total + serviceFee + deliveryFee + tipAmount;
+  const currency = settings?.currency === 'EUR' ? '€' : (settings?.currency ?? '');
 
-  const canCheckout = deliveryTime !== null && (deliveryMode === 'pickup' || !!selectedAddress);
+  const cardEnabled = !!settings?.card_payments_enabled;
+  const effectivePaymentMethod = cardEnabled ? paymentMethod : 'cash';
+  const scheduleIsValid = deliveryTime !== 'schedule' || !!selectedSchedule?.isoTimestamp;
+  const canCheckout =
+    deliveryTime !== null &&
+    scheduleIsValid &&
+    !!settings &&
+    (deliveryMode === 'pickup' || !!selectedAddress);
 
   const scrollHandler = useAnimatedScrollHandler({
     onScroll: (event) => {
@@ -151,7 +179,7 @@ const Page = () => {
   const showHowFeesWork = () => {
     Alert.alert(
       'How fees work',
-      `Service fee (${serviceFee.toFixed(2)} €) helps us run the app. Delivery fee (${deliveryFee.toFixed(2)} €) is based on the distance between the restaurant and your address.`
+      `Service fee (${serviceFee.toFixed(2)} ${currency}) helps us run the app. Delivery fee (${deliveryFee.toFixed(2)} ${currency}) is based on the distance between the restaurant and your address. Final amounts are confirmed by our servers when you place the order.`
     );
   };
 
@@ -160,28 +188,42 @@ const Page = () => {
 
     setIsSubmitting(true);
     try {
-      const result = await orderService.createOrder({
-        userId: user.id,
+      const order = await orderService.createOrder({
         restaurantId: selectedRestaurant.id,
         items,
         deliveryMode,
         addressId: deliveryMode === 'delivery' ? selectedAddress?.id ?? null : null,
         scheduledFor:
-          deliveryTime === 'schedule' && selectedSchedule ? new Date().toISOString() : null,
+          deliveryTime === 'schedule' ? selectedSchedule?.isoTimestamp ?? null : null,
         tipAmount,
-        paymentMethod: 'applepay',
+        paymentMethod: effectivePaymentMethod,
         leaveAtDoor,
         sendAsGift,
-        subtotal: total,
-        serviceFee,
-        deliveryFee,
-        total: grandTotal,
+        idempotencyKey: idempotencyKeyRef.current,
       });
 
+      if (order.status === 'pending_payment') {
+        const outcome = await pay(order.id, selectedRestaurant.name);
+
+        if (outcome.status === 'cancelled') {
+          Alert.alert(
+            'Payment cancelled',
+            'Your basket is saved. Tap Place order again to finish paying.'
+          );
+          return;
+        }
+
+        if (outcome.status === 'failed') {
+          Alert.alert('Payment failed', outcome.message);
+          return;
+        }
+      }
+
+      idempotencyKeyRef.current = createIdempotencyKey();
       invalidateOrderHistory();
       clearCart();
       router.dismissTo('/restaurants');
-      Alert.alert('Order placed!', `Your order #${result.orderId.slice(0, 8)} has been confirmed.`);
+      router.push(`/order/track?id=${order.id}`);
     } catch (error) {
       Alert.alert('Order failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {
@@ -190,7 +232,9 @@ const Page = () => {
   };
 
   return (
-    <View style={styles.container}>
+    <KeyboardAvoidingView
+      style={styles.container}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <Stack.Screen options={{ title: selectedRestaurant?.name }} />
       <Animated.View style={[styles.mapContainer, mapStyle]}>
         <View style={styles.mapPlaceholder}>
@@ -208,7 +252,9 @@ const Page = () => {
         onScroll={scrollHandler}
         scrollEventThrottle={16}
         contentContainerStyle={[styles.scrollContent, { paddingTop: MAP_HEIGHT }]}
-        showsVerticalScrollIndicator={false}>
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag">
         <View style={styles.contentContainer}>
           <View style={styles.section}>
             <View style={styles.pickerContainer}>
@@ -392,13 +438,57 @@ const Page = () => {
             <View style={styles.row}>
               <View style={styles.rowLeft}>
                 <View style={styles.paymentIcon}>
-                  <Ionicons name="logo-apple" size={24} color="#000" />
+                  <Ionicons
+                    name={effectivePaymentMethod === 'card' ? 'card-outline' : 'cash-outline'}
+                    size={24}
+                    color="#000"
+                  />
                 </View>
-                <Text style={styles.optionText}>Apple Pay</Text>
+                <View>
+                  <Text style={styles.optionText}>
+                    {effectivePaymentMethod === 'card' ? 'Card' : 'Pay on delivery'}
+                  </Text>
+                  <Text style={styles.sectionSubtitle}>
+                    {cardEnabled
+                      ? 'Charged when you place the order'
+                      : 'Card payments are not enabled yet'}
+                  </Text>
+                </View>
               </View>
-              <Text style={styles.paymentAmount}>{grandTotal.toFixed(2)} €</Text>
+              <Text style={styles.paymentAmount}>
+                {grandTotal.toFixed(2)} {currency}
+              </Text>
             </View>
           </View>
+
+          {cardEnabled && (
+            <View style={styles.section}>
+              <View style={styles.pickerContainer}>
+                <TouchableOpacity
+                  style={[styles.pickerOption, paymentMethod === 'card' && styles.pickerOptionActive]}
+                  onPress={() => setPaymentMethod('card')}>
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      paymentMethod === 'card' && styles.pickerOptionTextActive,
+                    ]}>
+                    Card
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pickerOption, paymentMethod === 'cash' && styles.pickerOptionActive]}
+                  onPress={() => setPaymentMethod('cash')}>
+                  <Text
+                    style={[
+                      styles.pickerOptionText,
+                      paymentMethod === 'cash' && styles.pickerOptionTextActive,
+                    ]}>
+                    Pay on delivery
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <View style={styles.section}>
             <Text style={styles.sectionHeader}>Add courier tip</Text>
@@ -456,29 +546,29 @@ const Page = () => {
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Item subtotal</Text>
-              <Text style={styles.summaryValue}>{total.toFixed(2)} €</Text>
+              <Text style={styles.summaryValue}>{total.toFixed(2)} {currency}</Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Service fee</Text>
-              <Text style={styles.summaryValue}>{serviceFee.toFixed(2)} €</Text>
+              <Text style={styles.summaryValue}>{serviceFee.toFixed(2)} {currency}</Text>
             </View>
 
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Delivery fee</Text>
-              <Text style={styles.summaryValue}>{deliveryFee.toFixed(2)} €</Text>
+              <Text style={styles.summaryValue}>{deliveryFee.toFixed(2)} {currency}</Text>
             </View>
 
             {tipAmount > 0 && (
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Courier tip</Text>
-                <Text style={styles.summaryValue}>{tipAmount.toFixed(2)} €</Text>
+                <Text style={styles.summaryValue}>{tipAmount.toFixed(2)} {currency}</Text>
               </View>
             )}
 
             <View style={[styles.summaryRow, styles.summaryTotal]}>
               <Text style={styles.summaryTotalText}>Total</Text>
-              <Text style={styles.summaryTotalValue}>{grandTotal.toFixed(2)} €</Text>
+              <Text style={styles.summaryTotalValue}>{grandTotal.toFixed(2)} {currency}</Text>
             </View>
           </View>
 
@@ -489,9 +579,11 @@ const Page = () => {
       <PurchaseButton
         onPress={handleCheckout}
         deliveryTimeSelected={deliveryTime !== null}
-        disabled={!canCheckout || isSubmitting}
+        disabled={!canCheckout || isSubmitting || isPaying}
+        isSubmitting={isSubmitting || isPaying}
+        label={`${effectivePaymentMethod === 'card' ? 'Pay' : 'Place order'} · ${grandTotal.toFixed(2)} ${currency}`}
       />
-    </View>
+    </KeyboardAvoidingView>
   );
 };
 export default Page;
