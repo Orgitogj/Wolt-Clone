@@ -1,3 +1,4 @@
+import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { Colors } from '@/constants/theme';
 import { useOrderHistory } from '@/hooks/useOrderHistory';
 import { Ionicons } from '@expo/vector-icons';
@@ -42,7 +43,9 @@ const Page = () => {
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => router.push(`/order/track?id=${item.id}`)}>
               <View style={styles.cardHeader}>
                 <Text style={styles.restaurantName}>{item.restaurant?.name ?? 'Restaurant'}</Text>
                 <Text style={styles.amount}>{item.total.toFixed(2)} €</Text>
@@ -51,8 +54,10 @@ const Page = () => {
                 {item.delivery_mode === 'pickup' ? 'Pickup' : 'Delivery'} •{' '}
                 {new Date(item.created_at).toLocaleDateString()}
               </Text>
-              <Text style={styles.status}>{item.status.replace('_', ' ')}</Text>
-            </View>
+              <View style={styles.statusRow}>
+                <OrderStatusBadge status={item.status} />
+              </View>
+            </TouchableOpacity>
           )}
         />
       )}
@@ -120,12 +125,8 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: Colors.muted,
   },
-  status: {
-    fontSize: 12,
-    color: Colors.secondary,
-    fontWeight: '600',
-    marginTop: 4,
-    textTransform: 'capitalize',
+  statusRow: {
+    marginTop: 8,
   },
   emptyState: {
     flex: 1,
