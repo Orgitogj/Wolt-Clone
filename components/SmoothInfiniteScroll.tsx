@@ -34,8 +34,8 @@ const iconDataSets = {
 };
 
 const ITEM_HEIGHT = 160;
-const SCROLL_SPEED = 20;   
-const GAP = 10;      
+const SCROLL_SPEED = 20;
+const GAP = 10;
 
 interface SmoothInfiniteScrollProps {
   scrollDirection?: 'up' | 'down';
@@ -56,21 +56,21 @@ const SmoothInfiniteScroll = ({
   const totalWrapHeight = totalContentHeight + iconData.length * GAP;
 
   useEffect(() => {
-    const duration = (totalWrapHeight / SCROLL_SPEED) * 1000;  
+    const duration = (totalWrapHeight / SCROLL_SPEED) * 1000;
 
     if (scrollDirection === 'down') {
       scrollY.value = 0;
       scrollY.value = withRepeat(
         withTiming(totalWrapHeight, { duration }),
-        -1, 
+        -1,
         false
       );
     } else {
       scrollY.value = totalWrapHeight;
       scrollY.value = withRepeat(
         withTiming(0, { duration }),
-        -1, 
-        false 
+        -1,
+        false
       );
     }
   }, [scrollDirection, totalWrapHeight]);

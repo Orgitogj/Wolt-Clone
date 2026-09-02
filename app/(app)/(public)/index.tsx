@@ -88,7 +88,6 @@ export default function Index() {
   );
 }
 
-
 const styles =StyleSheet.create({
 
   container:{
@@ -168,5 +167,5 @@ const styles =StyleSheet.create({
         color:'#4285F4',
         textDecorationLine:'underline'
       }
-  
+
 })

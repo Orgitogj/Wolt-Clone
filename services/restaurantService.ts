@@ -23,7 +23,7 @@ function sortRestaurants(restaurants: Restaurant[], sort?: RestaurantFilters['so
 }
 
 export const restaurantService = {
-  
+
   getAll: async (filters: RestaurantFilters = {}): Promise<Restaurant[]> => {
     let query = supabase.from('restaurants').select('*');
 
@@ -75,7 +75,6 @@ export const restaurantService = {
     return restaurantService.getAll({ search: query });
   },
 
-  
   getDistinctCuisines: async (): Promise<string[]> => {
     const { data, error } = await supabase.from('restaurants').select('cuisines');
     if (error) throw error;

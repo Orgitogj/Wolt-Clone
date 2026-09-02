@@ -5,7 +5,7 @@ const sortBySortOrder = <T extends { sort_order: number }>(items: T[]): T[] =>
   [...items].sort((a, b) => a.sort_order - b.sort_order);
 
 export const menuService = {
-  
+
   getMenu: async (restaurantId: string): Promise<MenuCategoryWithDishes[]> => {
     const { data, error } = await supabase
       .from('menu_categories')
@@ -24,7 +24,6 @@ export const menuService = {
     });
   },
 
-  
   getDishById: async (dishId: string): Promise<Dish | undefined> => {
     const { data, error } = await supabase
       .from('dishes')
@@ -38,13 +37,11 @@ export const menuService = {
     return { ...dish, addons: sortBySortOrder((dish_addons ?? []) as DishAddon[]) };
   },
 
-  
   getAllDishes: async (restaurantId: string): Promise<Dish[]> => {
     const menu = await menuService.getMenu(restaurantId);
     return menu.flatMap((category) => category.dishes);
   },
 
-  
   getPopularDishes: async (restaurantId: string): Promise<Dish[]> => {
     const { data, error } = await supabase
       .from('dishes')
@@ -56,7 +53,6 @@ export const menuService = {
     return data ?? [];
   },
 
-  
   searchDishes: async (query: string): Promise<Dish[]> => {
     const q = query.trim().toLowerCase();
     if (!q) return [];

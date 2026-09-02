@@ -6,7 +6,7 @@ export interface CategoryWithCount extends Category {
 }
 
 export const categoryService = {
-  
+
   getAll: async (): Promise<CategoryWithCount[]> => {
     const { data: categories, error } = await supabase
       .from('categories')

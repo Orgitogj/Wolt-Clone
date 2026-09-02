@@ -78,6 +78,7 @@ const RestaurantHeader = ({ title, scrollOffset }: RestaurantHeaderProps) => {
 
   return (
     <Animated.View style={[styles.headerContainer, shadowStyle, { paddingTop: insets.top }]}>
+
       <Animated.View style={[styles.header1, header1Style]}>
         <Link href={'/(app)/(auth)/(modal)/location'} asChild>
           <TouchableOpacity style={styles.locationButton}>

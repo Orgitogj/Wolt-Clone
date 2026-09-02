@@ -9,7 +9,6 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
-
 const Page = () => {
   const { signInWithOAuth, signInAnonymously } = useAuthStore();
   const [isContinuingAsGuest, setIsContinuingAsGuest] = useState(false);
@@ -73,7 +72,6 @@ const Page = () => {
   )
 }
 
-
 export default Page
 
 const styles = StyleSheet.create({
@@ -135,7 +133,6 @@ title:{
         fontSize:18,
         fontWeight:'600'
       },
-
 
      facebookButton:{
       width:'100%',

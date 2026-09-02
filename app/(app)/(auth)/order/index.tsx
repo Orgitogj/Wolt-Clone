@@ -18,6 +18,7 @@ const Page = () => {
 
   return (
     <View style={styles.container}>
+
       <View style={[styles.header, { paddingTop: top }]}>
         <View style={styles.restaurantInfo}>
           <TouchableOpacity style={styles.backButton} onPress={() => router.dismiss()}>

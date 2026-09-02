@@ -1,14 +1,12 @@
 import { restaurantService, type RestaurantFilters } from '@/services/restaurantService';
 import { useQuery } from '@tanstack/react-query';
 
-
 export const useRestaurants = (filters: RestaurantFilters = {}) => {
   return useQuery({
     queryKey: ['restaurants', filters],
     queryFn: () => restaurantService.getAll(filters),
   });
 };
-
 
 export const useRestaurant = (id: string) => {
   return useQuery({

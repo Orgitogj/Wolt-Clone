@@ -111,6 +111,7 @@ const Page = () => {
   return (
     <View style={styles.page}>
       <View style={styles.container}>
+
         <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>
           <Ionicons name="close" size={24} color="#000" />
         </TouchableOpacity>
@@ -119,6 +120,7 @@ const Page = () => {
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
+
           <View style={styles.imageContainer}>
             <Image source={{ uri: dish.image_url ?? undefined }} style={styles.image} />
           </View>
@@ -176,6 +178,7 @@ const Page = () => {
       </View>
 
       <View style={[styles.bottomBar, { paddingBottom: 24 + insets.bottom }]}>
+
         <View style={styles.quantityControls}>
           <TouchableOpacity style={styles.quantityButton} onPress={handleDecrement}>
             <Text style={styles.quantityButtonText}>−</Text>

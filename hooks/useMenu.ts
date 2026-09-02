@@ -17,7 +17,6 @@ export const useDish = (dishId: string) => {
   });
 };
 
-
 export const usePopularDishes = (restaurantId: string) => {
   return useQuery({
     queryKey: ['dishes', 'popular', restaurantId],
