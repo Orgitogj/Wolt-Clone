@@ -1,19 +1,50 @@
+import { usePushRegistration } from '@/hooks/useNotifications';
+import { StripeProvider } from '@stripe/stripe-react-native';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Slot, Stack } from 'expo-router';
+import { Slot } from 'expo-router';
 import {useFonts} from 'expo-font'
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import {Nunito_400Regular,Nunito_700Bold,Nunito_900Black} from '@expo-google-fonts/nunito';
 import * as Sentry from '@sentry/react-native';
 
-Sentry.init({
-  dsn: 'https://8450922dcee65fdb7b202daad8ff852a@o4511779698311168.ingest.de.sentry.io/4511779718627408',
-  sendDefaultPii: true,
-  enableLogs: true,
-  replaysSessionSampleRate: 1,
-  replaysOnErrorSampleRate: 1,
-  integrations: [Sentry.mobileReplayIntegration()],
+const SENTRY_DSN = process.env.EXPO_PUBLIC_SENTRY_DSN;
 
+Sentry.init({
+  dsn: SENTRY_DSN,
+  enabled: !!SENTRY_DSN && !__DEV__,
+  sendDefaultPii: false,
+  enableLogs: true,
+  replaysSessionSampleRate: 0,
+  replaysOnErrorSampleRate: 0.1,
+  integrations: [
+    Sentry.mobileReplayIntegration({
+      maskAllText: true,
+      maskAllImages: true,
+      maskAllVectors: true,
+    }),
+  ],
 });
+const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+
+const AppShell = () => {
+  usePushRegistration();
+
+  if (!STRIPE_PUBLISHABLE_KEY) {
+    return <Slot />;
+  }
+
+  return (
+    <StripeProvider
+      publishableKey={STRIPE_PUBLISHABLE_KEY}
+      merchantIdentifier="merchant.com.orgito.WOLT"
+      urlScheme="wolt">
+      <Slot />
+    </StripeProvider>
+  );
+};
+
 const queryClient=new QueryClient(
   {
     defaultOptions:{
@@ -26,7 +57,6 @@ const queryClient=new QueryClient(
 );
 export default Sentry.wrap(function RootLayout() {
 
-
   let [fontsLoaded]=useFonts({
     Nunito_400Regular,
     Nunito_700Bold,
@@ -36,11 +66,13 @@ export default Sentry.wrap(function RootLayout() {
 
   if (!fontsLoaded) return null;
   return (
-    <GestureHandlerRootView style={{flex:1}}>
-      <QueryClientProvider client={queryClient}>  
-        <Slot/>
-      </QueryClientProvider>
-    
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <QueryClientProvider client={queryClient}>
+          <StatusBar style="dark" />
+          <AppShell />
+        </QueryClientProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   )
 });

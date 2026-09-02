@@ -1,6 +1,9 @@
 import { Colors } from '@/constants/theme';
 import useAuthStore from '@/hooks/use-auth-store';
 import { useFavorites } from '@/hooks/useFavorites';
+import { useCourierProfile } from '@/hooks/useCourier';
+import { useNotifications } from '@/hooks/useNotifications';
+import { useManagedRestaurants } from '@/hooks/useMerchant';
 import { useOrderHistory } from '@/hooks/useOrderHistory';
 import { useProfile } from '@/hooks/useProfile';
 import { Ionicons } from '@expo/vector-icons';
@@ -23,6 +26,9 @@ const Page = () => {
   const { favorites } = useFavorites();
   const { data: orders } = useOrderHistory();
   const { profile, updateProfile } = useProfile();
+  const { restaurants: managedRestaurants, isMerchant } = useManagedRestaurants();
+  const { courier, isCourier } = useCourierProfile();
+  const { unreadCount } = useNotifications();
 
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
@@ -57,6 +63,7 @@ const Page = () => {
       contentContainerStyle={styles.content}
       showsVerticalScrollIndicator={false}
       contentInsetAdjustmentBehavior="automatic">
+
       <View style={styles.section}>
         <View style={styles.profileHeader}>
           <View style={styles.avatar}>
@@ -68,6 +75,16 @@ const Page = () => {
               {isAnonymous ? 'Browsing as guest' : user?.email}
             </Text>
           </View>
+          <TouchableOpacity
+            style={styles.bellButton}
+            onPress={() => router.push('/notifications')}>
+            <Ionicons name="notifications-outline" size={22} color={Colors.secondary} />
+            {unreadCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
           <TouchableOpacity onPress={() => setIsEditingProfile((v) => !v)}>
             <Ionicons name={isEditingProfile ? 'close' : 'pencil'} size={20} color={Colors.secondary} />
           </TouchableOpacity>
@@ -95,6 +112,46 @@ const Page = () => {
             </TouchableOpacity>
           </View>
         )}
+      </View>
+
+      {isMerchant && (
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.merchantCard} onPress={() => router.push('/merchant')}>
+            <View style={styles.merchantIcon}>
+              <Ionicons name="storefront" size={20} color={Colors.secondary} />
+            </View>
+            <View style={styles.menuItemLeft}>
+              <Text style={styles.menuItemTitle}>Restaurant dashboard</Text>
+              <Text style={styles.menuItemSubtitle}>
+                {managedRestaurants.length === 1
+                  ? managedRestaurants[0].name
+                  : `${managedRestaurants.length} restaurants`}
+              </Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+        </View>
+      )}
+
+      <View style={styles.section}>
+        <TouchableOpacity style={styles.merchantCard} onPress={() => router.push('/courier')}>
+          <View style={styles.merchantIcon}>
+            <Ionicons name="bicycle" size={20} color={Colors.secondary} />
+          </View>
+          <View style={styles.menuItemLeft}>
+            <Text style={styles.menuItemTitle}>
+              {isCourier ? 'Courier dashboard' : 'Deliver with us'}
+            </Text>
+            <Text style={styles.menuItemSubtitle}>
+              {isCourier
+                ? courier?.verification_status === 'approved'
+                  ? 'Go online and take deliveries'
+                  : 'Application under review'
+                : 'Earn money delivering orders'}
+            </Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -243,6 +300,36 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     paddingVertical: 16,
+  },
+  bellButton: { padding: 4, marginRight: 8 },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    backgroundColor: '#ff4646',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
+  merchantCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: Colors.primaryLight,
+    borderRadius: 12,
+    padding: 14,
+  },
+  merchantIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   menuItem: {
     flexDirection: 'row',

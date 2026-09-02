@@ -81,9 +81,12 @@ const Layout = () => {
         name="order"
         options={{
           headerShown:false,
-          
+
         }}
       />
+      <Stack.Screen name="merchant" options={{ headerShown: false }} />
+      <Stack.Screen name="courier" options={{ headerShown: false }} />
+      <Stack.Screen name="notifications" options={{ headerShown: false }} />
     </Stack>
   );
 };

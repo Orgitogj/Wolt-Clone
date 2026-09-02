@@ -54,10 +54,12 @@ const useAuthStore = create<AuthState>((set) => {
         email,
         password,
         options: {
+
           emailRedirectTo: Linking.createURL('/'),
           ...(fullName ? { data: { full_name: fullName } } : {}),
         },
       });
+
       const needsEmailConfirmation = !error && !data.session;
       return { error: error?.message ?? null, needsEmailConfirmation };
     },

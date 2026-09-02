@@ -25,6 +25,15 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="track"
+        options={{
+          headerShown: false,
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
         name="checkout"
         options={{
           title: '',
