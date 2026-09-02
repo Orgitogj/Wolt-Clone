@@ -1,8 +1,16 @@
 import { Colors } from '@/constants/theme';
 import { useScheduleStore } from '@/hooks/use-schedule-store';
 import { useRouter } from 'expo-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+
+const SLOT_MINUTES = 30;
+const DAYS_AHEAD = 4;
+
+interface Slot {
+  label: string;
+  date: Date;
+}
 
 const Page = () => {
   const router = useRouter();
@@ -10,36 +18,48 @@ const Page = () => {
   const [selectedDay, setSelectedDay] = useState(0);
   const [selectedTime, setSelectedTime] = useState(0);
 
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(tomorrow.getDate() + 1);
-  const in2Days = new Date(today);
-  in2Days.setDate(in2Days.getDate() + 2);
-  const in3Days = new Date(today);
-  in3Days.setDate(in3Days.getDate() + 3);
-
-  const nextDays = [
-    'Today',
-    `${tomorrow.getDate()}.${tomorrow.getMonth() + 1}`,
-    `${in2Days.getDate()}.${in2Days.getMonth() + 1}`,
-    `${in3Days.getDate()}.${in3Days.getMonth() + 1}`,
-  ];
-
-  const nextTimes = useMemo(() => {
-    const slots: string[] = [];
-    for (let hour = 0; hour < 24; hour += 1) {
-      for (let minute = 0; minute < 60; minute += 30) {
-        const label = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        slots.push(label);
-      }
-    }
-    return slots;
+  const days = useMemo(() => {
+    const now = new Date();
+    return Array.from({ length: DAYS_AHEAD }, (_, offset) => {
+      const date = new Date(now);
+      date.setDate(now.getDate() + offset);
+      date.setHours(0, 0, 0, 0);
+      return {
+        label: offset === 0 ? 'Today' : `${date.getDate()}.${date.getMonth() + 1}`,
+        date,
+      };
+    });
   }, []);
 
+  const slots = useMemo<Slot[]>(() => {
+    const day = days[selectedDay];
+    if (!day) return [];
+    const now = Date.now();
+    const result: Slot[] = [];
+    for (let minutes = 0; minutes < 24 * 60; minutes += SLOT_MINUTES) {
+      const date = new Date(day.date);
+      date.setMinutes(minutes);
+      if (date.getTime() <= now) continue;
+      const hours = String(date.getHours()).padStart(2, '0');
+      const mins = String(date.getMinutes()).padStart(2, '0');
+      result.push({ label: `${hours}:${mins}`, date });
+    }
+    return result;
+  }, [days, selectedDay]);
+
+  useEffect(() => {
+    setSelectedTime(0);
+  }, [selectedDay]);
+
   const handleConfirm = () => {
-    const dayLabel = nextDays[selectedDay];
-    const timeLabel = nextTimes[selectedTime];
-    setSelectedSchedule({ day: dayLabel, time: timeLabel });
+    const day = days[selectedDay];
+    const slot = slots[selectedTime];
+    if (!day || !slot) return;
+    setSelectedSchedule({
+      day: day.label,
+      time: slot.label,
+      isoTimestamp: slot.date.toISOString(),
+    });
     router.dismiss();
   };
 
@@ -51,13 +71,13 @@ const Page = () => {
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Day</Text>
         <View style={styles.optionGrid}>
-          {nextDays.map((day, index) => (
+          {days.map((day, index) => (
             <TouchableOpacity
-              key={day}
+              key={day.label}
               style={[styles.optionChip, selectedDay === index && styles.optionChipSelected]}
               onPress={() => setSelectedDay(index)}>
               <Text style={[styles.optionText, selectedDay === index && styles.optionTextSelected]}>
-                {day}
+                {day.label}
               </Text>
             </TouchableOpacity>
           ))}
@@ -66,21 +86,28 @@ const Page = () => {
 
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Time</Text>
-        <ScrollView style={styles.timeList} showsVerticalScrollIndicator={false}>
-          {nextTimes.map((time, index) => (
-            <TouchableOpacity
-              key={time}
-              style={[styles.timeOption, selectedTime === index && styles.timeOptionSelected]}
-              onPress={() => setSelectedTime(index)}>
-              <Text style={[styles.timeText, selectedTime === index && styles.timeTextSelected]}>
-                {time}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
+        {slots.length === 0 ? (
+          <Text style={styles.subtitle}>No slots left today. Pick another day.</Text>
+        ) : (
+          <ScrollView style={styles.timeList} showsVerticalScrollIndicator={false}>
+            {slots.map((slot, index) => (
+              <TouchableOpacity
+                key={slot.label}
+                style={[styles.timeOption, selectedTime === index && styles.timeOptionSelected]}
+                onPress={() => setSelectedTime(index)}>
+                <Text style={[styles.timeText, selectedTime === index && styles.timeTextSelected]}>
+                  {slot.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        )}
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleConfirm}>
+      <TouchableOpacity
+        style={[styles.button, slots.length === 0 && styles.buttonDisabled]}
+        onPress={handleConfirm}
+        disabled={slots.length === 0}>
         <Text style={styles.buttonText}>Confirm</Text>
       </TouchableOpacity>
     </View>
@@ -173,6 +200,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: Colors.secondary,
     boxShadow: '0px 4px 12px rgba(0, 157, 224, 0.3)',
+  },
+  buttonDisabled: {
+    backgroundColor: '#e0e0e0',
   },
   buttonText: {
     fontSize: 16,

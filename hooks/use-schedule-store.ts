@@ -5,6 +5,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 export interface ScheduledTime {
   day: string;
   time: string;
+  isoTimestamp: string;
 }
 
 interface ScheduleStore {
