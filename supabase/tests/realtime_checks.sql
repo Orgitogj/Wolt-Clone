@@ -21,6 +21,7 @@ end;
 $$;
 
 create temporary table t_ids (key text primary key, id uuid not null) on commit drop;
+grant all on t_ids to authenticated;
 
 insert into auth.users (id, email) values
   (gen_random_uuid(), 'cx@rt.test'),
@@ -114,14 +115,24 @@ begin
   perform public.transition_order_status(v_order_id, 'accepted');
   perform pg_temp.assert(
     (select count(*) from public.notifications
-      where order_id = v_order_id and kind = 'accepted' and audience = 'customer') = 1,
-    'accepting an order notifies the customer');
+      where order_id = v_order_id and kind = 'accepted') = 0,
+    'a restaurant cannot read the notification sent to the customer');
 
   perform public.transition_order_status(v_order_id, 'preparing');
   perform public.transition_order_status(v_order_id, 'ready_for_pickup');
 end;
 $$;
 reset role;
+
+do $$
+begin
+  perform pg_temp.assert(
+    (select count(*) from public.notifications
+      where order_id = (select id from t_ids where key = 'order')
+        and kind = 'accepted' and audience = 'customer') = 1,
+    'accepting an order notifies the customer');
+end;
+$$;
 
 insert into t_ids (key, id)
 select 'delivery', id from public.deliveries where order_id = (select id from t_ids where key = 'order');
