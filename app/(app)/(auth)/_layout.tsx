@@ -84,6 +84,7 @@ const Layout = () => {
 
         }}
       />
+      <Stack.Screen name="admin" options={{ headerShown: false }} />
       <Stack.Screen name="merchant" options={{ headerShown: false }} />
       <Stack.Screen name="courier" options={{ headerShown: false }} />
       <Stack.Screen name="notifications" options={{ headerShown: false }} />

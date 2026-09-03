@@ -114,6 +114,21 @@ const Page = () => {
         )}
       </View>
 
+      {profile?.role === 'admin' && (
+        <View style={styles.section}>
+          <TouchableOpacity style={styles.merchantCard} onPress={() => router.push('/admin')}>
+            <View style={styles.merchantIcon}>
+              <Ionicons name="shield-checkmark" size={20} color={Colors.secondary} />
+            </View>
+            <View style={styles.menuItemLeft}>
+              <Text style={styles.menuItemTitle}>Admin console</Text>
+              <Text style={styles.menuItemSubtitle}>Orders, couriers, people and settings</Text>
+            </View>
+            <Ionicons name="chevron-forward" size={20} color="#999" />
+          </TouchableOpacity>
+        </View>
+      )}
+
       {isMerchant && (
         <View style={styles.section}>
           <TouchableOpacity style={styles.merchantCard} onPress={() => router.push('/merchant')}>
