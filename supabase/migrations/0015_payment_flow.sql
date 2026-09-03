@@ -1,4 +1,6 @@
-create or replace view public.order_financials as
+drop view if exists public.order_financials;
+
+create view public.order_financials as
 select o.id as order_id,
        o.restaurant_id,
        o.user_id,
