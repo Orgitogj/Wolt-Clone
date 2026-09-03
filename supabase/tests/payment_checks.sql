@@ -20,7 +20,15 @@ begin
 end;
 $$;
 
+create or replace function pg_temp.act_as_system()
+returns void language plpgsql as $$
+begin
+  perform set_config('request.jwt.claims', '', true);
+end;
+$$;
+
 create temporary table t_ids (key text primary key, id uuid not null) on commit drop;
+grant all on t_ids to authenticated;
 
 insert into auth.users (id, email) values
   (gen_random_uuid(), 'cx@pay.test'),
@@ -76,16 +84,26 @@ begin
     jsonb_build_array(jsonb_build_object('dish_id', (select id from t_ids where key = 'dish'),
                                          'quantity', 1, 'addon_ids', '[]'::jsonb)),
     'pickup', null, null, 0, 'cash', false, false, gen_random_uuid());
+  insert into t_ids (key, id) values ('cash_order', v_order.id);
   perform pg_temp.assert(v_order.status = 'placed', 'a cash order is placed immediately');
   perform pg_temp.assert(
     (select count(*) from public.payments where order_id = v_order.id) = 0,
     'a cash order creates no payment record');
   perform pg_temp.assert(
-    (select count(*) from public.ledger_entries where order_id = v_order.id) = 3,
-    'a cash order posts the ledger immediately');
+    (select count(*) from public.ledger_entries where order_id = v_order.id) = 1,
+    'a customer only sees their own entry on the order ledger');
 end;
 $$;
 reset role;
+
+do $$
+begin
+  perform pg_temp.assert(
+    (select count(*) from public.ledger_entries
+      where order_id = (select id from t_ids where key = 'cash_order')) = 3,
+    'a cash order posts the ledger immediately');
+end;
+$$;
 
 update public.platform_settings set card_payments_enabled = true, commission_rate = 0.1500;
 
@@ -128,6 +146,7 @@ end;
 $$;
 reset role;
 
+do $$ begin perform pg_temp.act_as_system(); end $$;
 update public.payments set provider_intent_id = 'pi_test_123'
  where order_id = (select id from t_ids where key = 'order');
 
@@ -215,6 +234,7 @@ end;
 $$;
 reset role;
 
+do $$ begin perform pg_temp.act_as_system(); end $$;
 do $$
 declare v_refund public.refunds;
 begin
@@ -259,6 +279,7 @@ end;
 $$;
 reset role;
 
+do $$ begin perform pg_temp.act_as_system(); end $$;
 update public.payments set provider_intent_id = 'pi_test_fail'
  where order_id = (select id from t_ids where key = 'failed_order');
 
@@ -293,6 +314,7 @@ end;
 $$;
 reset role;
 
+do $$ begin perform pg_temp.act_as_system(); end $$;
 update public.orders set created_at = now() - interval '2 hours'
  where id = (select id from t_ids where key = 'stale_order');
 
