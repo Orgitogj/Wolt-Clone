@@ -16,6 +16,7 @@ create temporary table t_ids (
   key text primary key,
   id uuid not null
 ) on commit drop;
+grant all on t_ids to authenticated;
 
 insert into auth.users (id, email)
 values
@@ -81,7 +82,7 @@ begin
   v_order := public.create_order(
     v_restaurant,
     jsonb_build_array(jsonb_build_object('dish_id', v_dish, 'quantity', 2, 'addon_ids', '[]'::jsonb)),
-    'delivery', v_address, null, 1.00, 'card', false, false, v_key
+    'delivery', v_address, null, 1.00, 'cash', false, false, v_key
   );
 
   perform pg_temp.assert(v_order.subtotal = 20.00, 'server prices the basket (2 x 10.00)');
@@ -95,7 +96,7 @@ begin
   v_second := public.create_order(
     v_restaurant,
     jsonb_build_array(jsonb_build_object('dish_id', v_dish, 'quantity', 2, 'addon_ids', '[]'::jsonb)),
-    'delivery', v_address, null, 1.00, 'card', false, false, v_key
+    'delivery', v_address, null, 1.00, 'cash', false, false, v_key
   );
   perform pg_temp.assert(v_second.id = v_order.id, 'idempotency key returns the same order');
 
@@ -166,7 +167,7 @@ begin
       (select id from t_ids where key = 'restaurant'),
       jsonb_build_array(jsonb_build_object('dish_id', (select id from t_ids where key = 'dish'),
                                            'quantity', 1000, 'addon_ids', '[]'::jsonb)),
-      'pickup', null, null, 0, 'card', false, false, gen_random_uuid());
+      'pickup', null, null, 0, 'cash', false, false, gen_random_uuid());
   exception when others then
     v_failed := true;
   end;

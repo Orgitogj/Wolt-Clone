@@ -21,6 +21,7 @@ end;
 $$;
 
 create temporary table t_ids (key text primary key, id uuid not null) on commit drop;
+grant all on t_ids to authenticated;
 
 insert into auth.users (id, email) values
   (gen_random_uuid(), 'cx@courier.test'),
