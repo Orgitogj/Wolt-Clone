@@ -78,3 +78,59 @@ export const isTerminalStatus = (status: OrderStatus): boolean =>
 
 export const orderStatusLabel = (status: OrderStatus): string =>
   ORDER_STATUS_LABELS[status] ?? status.replace(/_/g, ' ');
+
+export interface AdminOrderAction {
+  to: OrderStatus;
+  label: string;
+  destructive?: boolean;
+  requiresReason?: boolean;
+}
+
+export const ADMIN_ORDER_ACTIONS: Partial<Record<OrderStatus, AdminOrderAction[]>> = {
+  pending_payment: [
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  placed: [
+    { to: 'accepted', label: 'Accept' },
+    { to: 'restaurant_rejected', label: 'Reject', destructive: true, requiresReason: true },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  accepted: [
+    { to: 'preparing', label: 'Start preparing' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  preparing: [
+    { to: 'ready_for_pickup', label: 'Mark ready' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  ready_for_pickup: [
+    { to: 'delivered', label: 'Mark delivered' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  courier_assigned: [
+    { to: 'picked_up', label: 'Mark picked up' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  picked_up: [
+    { to: 'delivering', label: 'Mark on the way' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  delivering: [
+    { to: 'delivered', label: 'Mark delivered' },
+    { to: 'cancelled', label: 'Cancel', destructive: true, requiresReason: true },
+  ],
+  delivered: [{ to: 'refunded', label: 'Mark refunded', requiresReason: true }],
+  cancelled: [{ to: 'refunded', label: 'Mark refunded', requiresReason: true }],
+  restaurant_rejected: [{ to: 'refunded', label: 'Mark refunded', requiresReason: true }],
+};
+
+export const ADMIN_ORDER_FILTERS: { key: string; label: string; statuses: OrderStatus[] }[] = [
+  { key: 'live', label: 'Live', statuses: MERCHANT_ACTIVE_STATUSES },
+  { key: 'unpaid', label: 'Unpaid', statuses: ['pending_payment', 'payment_failed'] },
+  { key: 'done', label: 'Delivered', statuses: ['delivered'] },
+  {
+    key: 'problem',
+    label: 'Problems',
+    statuses: ['restaurant_rejected', 'cancelled', 'refunded', 'payment_failed'],
+  },
+];

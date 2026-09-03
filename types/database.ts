@@ -473,3 +473,94 @@ export interface PaymentIntentResponse {
   currency: string;
 }
 
+
+export interface AdminOverview {
+  orders_today: number;
+  gmv_today: number;
+  commission_today: number;
+  refunds_today: number;
+  active_orders: number;
+  awaiting_payment: number;
+  unassigned_deliveries: number;
+  pending_couriers: number;
+  online_couriers: number;
+  total_users: number;
+  total_restaurants: number;
+}
+
+export interface AdminDailyRevenue {
+  day: string;
+  orders: number;
+  gmv: number;
+  commission: number;
+}
+
+export interface AdminOrderRow {
+  order_id: string;
+  created_at: string;
+  status: OrderStatus;
+  delivery_mode: DeliveryMode;
+  payment_method: PaymentMethod;
+  subtotal: number;
+  tip_amount: number;
+  total: number;
+  scheduled_for: string | null;
+  restaurant_id: string;
+  restaurant_name: string;
+  customer_id: string;
+  customer_name: string | null;
+  customer_email: string | null;
+  payment_status: string;
+  amount_refunded: number;
+  delivery_id: string | null;
+  delivery_status: DeliveryStatus | null;
+  courier_id: string | null;
+  courier_name: string | null;
+}
+
+export interface AdminCourier {
+  id: string;
+  full_name: string;
+  phone: string | null;
+  vehicle_type: CourierVehicleType;
+  vehicle_plate: string | null;
+  availability: CourierAvailability;
+  verification_status: VerificationStatus;
+  verification_notes: string | null;
+  current_latitude: number | null;
+  current_longitude: number | null;
+  location_updated_at: string | null;
+  created_at: string;
+  email: string | null;
+  document_count: number;
+  approved_documents: number;
+  completed_deliveries: number;
+  lifetime_earnings: number;
+}
+
+export interface AdminUser {
+  id: string;
+  full_name: string | null;
+  phone: string | null;
+  role: UserRole;
+  created_at: string;
+  email: string | null;
+  order_count: number;
+  lifetime_value: number;
+  is_courier: boolean;
+  managed_restaurants: string[];
+}
+
+export interface AdminActionLog {
+  id: string;
+  admin_id: string | null;
+  action: string;
+  subject_type: string;
+  subject_id: string | null;
+  details: Record<string, unknown>;
+  created_at: string;
+}
+
+export type PlatformSettingsPatch = Partial<
+  Omit<PlatformSettings, 'id' | 'updated_at'>
+>;
