@@ -1,4 +1,9 @@
-import type { CourierVehicleType, DeliveryStatus, VerificationStatus } from '@/types/database';
+import type {
+  CourierDocumentKind,
+  CourierVehicleType,
+  DeliveryStatus,
+  VerificationStatus,
+} from '@/types/database';
 
 export const DELIVERY_STATUS_LABELS: Record<DeliveryStatus, string> = {
   pending: 'Finding a courier',
@@ -24,6 +29,20 @@ export const VEHICLE_LABELS: Record<CourierVehicleType, string> = {
 };
 
 export const VEHICLE_OPTIONS: CourierVehicleType[] = ['bicycle', 'scooter', 'car', 'on_foot'];
+
+export const DOCUMENT_LABELS: Record<CourierDocumentKind, string> = {
+  id_card: 'ID card',
+  drivers_license: 'Driving licence',
+  insurance: 'Insurance',
+  vehicle_registration: 'Vehicle registration',
+};
+
+export const REQUIRED_DOCUMENTS: Record<CourierVehicleType, CourierDocumentKind[]> = {
+  bicycle: ['id_card'],
+  on_foot: ['id_card'],
+  scooter: ['id_card', 'drivers_license', 'insurance', 'vehicle_registration'],
+  car: ['id_card', 'drivers_license', 'insurance', 'vehicle_registration'],
+};
 
 export interface CourierStep {
   to: DeliveryStatus;

@@ -5,8 +5,16 @@ import {
   LOCATION_UPDATE_INTERVAL_MS,
 } from '@/constants/deliveryStatus';
 import { useRealtimeTable } from '@/hooks/useRealtime';
-import { courierService, type RegisterCourierInput } from '@/services/courierService';
-import type { CourierAvailability, DeliveryStatus } from '@/types/database';
+import {
+  courierService,
+  type CourierDocumentUpload,
+  type RegisterCourierInput,
+} from '@/services/courierService';
+import type {
+  CourierAvailability,
+  CourierDocumentKind,
+  DeliveryStatus,
+} from '@/types/database';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { useEffect, useRef } from 'react';
@@ -201,3 +209,29 @@ export const useTrackedCourier = (orderId: string | undefined, enabled: boolean)
     enabled: enabled && !!orderId,
     refetchInterval: enabled ? 10000 : false,
   });
+
+export const useCourierDocuments = () => {
+  const { user } = useAuthStore();
+  const userId = user?.id;
+
+  return useQuery({
+    queryKey: ['courier-documents', userId],
+    queryFn: () => courierService.listDocuments(userId!),
+    enabled: !!userId,
+  });
+};
+
+export const useSubmitCourierDocument = () => {
+  const { user } = useAuthStore();
+  const queryClient = useQueryClient();
+  const userId = user?.id;
+
+  return useMutation({
+    mutationFn: ({ kind, file }: { kind: CourierDocumentKind; file: CourierDocumentUpload }) =>
+      courierService.submitDocument(userId!, kind, file),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['courier-documents', userId] });
+      queryClient.invalidateQueries({ queryKey: ['courier', userId] });
+    },
+  });
+};

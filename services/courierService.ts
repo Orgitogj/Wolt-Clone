@@ -1,8 +1,11 @@
 import { supabase } from '@/lib/supabase';
+import { File } from 'expo-file-system';
 import { ACTIVE_DELIVERY_STATUSES } from '@/constants/deliveryStatus';
 import type {
   Courier,
   CourierAvailability,
+  CourierDocument,
+  CourierDocumentKind,
   CourierEarning,
   CourierLocation,
   CourierVehicleType,
@@ -16,6 +19,20 @@ import type {
 const DELIVERY_CONTEXT =
   '*, restaurant:restaurants(*), order:orders(*, order_items(*))';
 
+const DOCUMENT_EXTENSIONS: Record<string, string> = {
+  'image/jpeg': 'jpg',
+  'image/jpg': 'jpg',
+  'image/png': 'png',
+  'image/heic': 'heic',
+  'image/webp': 'webp',
+  'application/pdf': 'pdf',
+};
+
+export interface CourierDocumentUpload {
+  uri: string;
+  mimeType?: string | null;
+}
+
 export interface RegisterCourierInput {
   fullName: string;
   phone?: string | null;
@@ -24,6 +41,39 @@ export interface RegisterCourierInput {
 }
 
 export const courierService = {
+  listDocuments: async (courierId: string): Promise<CourierDocument[]> => {
+    const { data, error } = await supabase
+      .from('courier_documents')
+      .select('*')
+      .eq('courier_id', courierId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as CourierDocument[];
+  },
+
+  submitDocument: async (
+    courierId: string,
+    kind: CourierDocumentKind,
+    file: CourierDocumentUpload
+  ): Promise<CourierDocument> => {
+    const contentType = file.mimeType ?? 'image/jpeg';
+    const extension = DOCUMENT_EXTENSIONS[contentType] ?? 'jpg';
+    const storagePath = `${courierId}/${kind}.${extension}`;
+    const bytes = await new File(file.uri).bytes();
+
+    const { error: uploadError } = await supabase.storage
+      .from('courier-documents')
+      .upload(storagePath, bytes, { contentType, upsert: true });
+    if (uploadError) throw uploadError;
+
+    const { data, error } = await supabase.rpc('submit_courier_document', {
+      p_kind: kind,
+      p_storage_path: storagePath,
+    });
+    if (error) throw error;
+    return data as CourierDocument;
+  },
+
   getProfile: async (userId: string): Promise<Courier | undefined> => {
     const { data, error } = await supabase
       .from('couriers')
