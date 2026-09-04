@@ -308,4 +308,85 @@ end;
 $$;
 reset role;
 
+do $$ begin perform pg_temp.act_as((select id from t_ids where key = 'courier1')); end $$;
+set local role authenticated;
+
+do $$
+declare
+  v_document public.courier_documents;
+  v_courier_id uuid := (select id from t_ids where key = 'courier1');
+begin
+  v_document := public.submit_courier_document(
+    'id_card'::public.courier_document_kind, v_courier_id::text || '/id_card.jpg');
+  perform pg_temp.assert(v_document.status = 'pending',
+    'a submitted document starts unreviewed');
+  perform pg_temp.assert(v_document.courier_id = v_courier_id,
+    'a document is filed against the courier who submitted it');
+end;
+$$;
+
+do $$
+declare v_failed boolean := false;
+begin
+  begin
+    perform public.submit_courier_document(
+      'id_card'::public.courier_document_kind,
+      (select id from t_ids where key = 'courier2')::text || '/id_card.jpg');
+  exception when insufficient_privilege then v_failed := true;
+  end;
+  perform pg_temp.assert(v_failed, 'a courier cannot file a document into another folder');
+end;
+$$;
+
+do $$
+declare v_failed boolean := false;
+begin
+  begin
+    insert into public.courier_documents (courier_id, kind, storage_path, status)
+    values (auth.uid(), 'insurance', auth.uid()::text || '/insurance.jpg', 'approved');
+  exception when insufficient_privilege then v_failed := true;
+  end;
+  perform pg_temp.assert(v_failed, 'a courier cannot insert an already approved document');
+end;
+$$;
+reset role;
+
+do $$
+declare v_courier_id uuid := (select id from t_ids where key = 'courier1');
+begin
+  update public.courier_documents
+     set status = 'rejected', notes = 'Blurred photo', reviewed_at = now()
+   where courier_id = v_courier_id and kind = 'id_card';
+  update public.couriers set verification_status = 'rejected' where id = v_courier_id;
+end;
+$$;
+
+do $$ begin perform pg_temp.act_as((select id from t_ids where key = 'courier1')); end $$;
+set local role authenticated;
+
+do $$
+declare
+  v_document public.courier_documents;
+  v_courier_id uuid := (select id from t_ids where key = 'courier1');
+begin
+  v_document := public.submit_courier_document(
+    'id_card'::public.courier_document_kind, v_courier_id::text || '/id_card.png');
+
+  perform pg_temp.assert(v_document.status = 'pending',
+    'replacing a rejected document clears the rejection');
+  perform pg_temp.assert(v_document.notes is null,
+    'replacing a document clears the reviewer note');
+  perform pg_temp.assert(v_document.storage_path = v_courier_id::text || '/id_card.png',
+    'replacing a document keeps one row per kind');
+  perform pg_temp.assert(
+    (select count(*) from public.courier_documents
+      where courier_id = v_courier_id and kind = 'id_card') = 1,
+    'a replaced document does not duplicate the row');
+  perform pg_temp.assert(
+    (select verification_status from public.couriers where id = v_courier_id) = 'pending',
+    'a rejected courier returns to review when they resubmit');
+end;
+$$;
+reset role;
+
 rollback;
