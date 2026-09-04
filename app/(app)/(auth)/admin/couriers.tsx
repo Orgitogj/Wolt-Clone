@@ -1,4 +1,5 @@
 import { AdminEmpty, AdminScreen, adminStyles } from '@/components/admin/AdminScreen';
+import { DOCUMENT_LABELS } from '@/constants/deliveryStatus';
 import { Colors } from '@/constants/theme';
 import {
   useAdminCourierDocuments,
@@ -39,13 +40,6 @@ const REVIEW_ACTIONS: { status: VerificationStatus; label: string; destructive?:
   { status: 'rejected', label: 'Reject', destructive: true },
   { status: 'suspended', label: 'Suspend', destructive: true },
 ];
-
-const DOCUMENT_LABELS: Record<string, string> = {
-  id_card: 'ID card',
-  drivers_license: 'Driving licence',
-  insurance: 'Insurance',
-  vehicle_registration: 'Vehicle registration',
-};
 
 const CourierDocuments = ({ courierId }: { courierId: string }) => {
   const { data: documents, isLoading } = useAdminCourierDocuments(courierId);

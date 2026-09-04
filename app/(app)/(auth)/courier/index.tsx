@@ -5,6 +5,7 @@ import {
   VEHICLE_OPTIONS,
   VERIFICATION_LABELS,
 } from '@/constants/deliveryStatus';
+import { DocumentUpload } from '@/components/courier/DocumentUpload';
 import { Colors } from '@/constants/theme';
 import {
   useActiveDelivery,
@@ -220,16 +221,20 @@ const Page = () => {
     return (
       <View style={styles.container}>
         {header}
-        <View style={styles.centered}>
-          <Ionicons name="hourglass-outline" size={52} color={Colors.muted} />
-          <Text style={styles.emptyTitle}>
-            {VERIFICATION_LABELS[courier!.verification_status]}
-          </Text>
-          <Text style={styles.emptyText}>
-            {courier?.verification_notes ??
-              'Your application is with our team. You can go online as soon as it is approved.'}
-          </Text>
-        </View>
+        <ScrollView contentContainerStyle={styles.content}>
+          <View style={styles.reviewCard}>
+            <Ionicons name="hourglass-outline" size={44} color={Colors.muted} />
+            <Text style={styles.emptyTitle}>
+              {VERIFICATION_LABELS[courier!.verification_status]}
+            </Text>
+            <Text style={styles.emptyText}>
+              {courier?.verification_notes ??
+                'Your application is with our team. You can go online as soon as it is approved.'}
+            </Text>
+          </View>
+
+          <DocumentUpload vehicleType={courier!.vehicle_type} />
+        </ScrollView>
       </View>
     );
   }
@@ -405,6 +410,12 @@ const Page = () => {
 };
 
 const styles = StyleSheet.create({
+  reviewCard: {
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 24,
+    paddingHorizontal: 16,
+  },
   container: { flex: 1, backgroundColor: Colors.background },
   centered: {
     flex: 1,
