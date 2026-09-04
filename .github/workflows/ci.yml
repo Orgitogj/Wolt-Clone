@@ -44,37 +44,10 @@ jobs:
   database:
     name: Migrations and RLS checks
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:16
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: wolt_verify
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-        ports:
-          - 5432:5432
-    env:
-      PGPASSWORD: postgres
-      PSQL: psql -v ON_ERROR_STOP=1 -h localhost -U postgres -d wolt_verify
     steps:
       - uses: actions/checkout@v4
-      - name: Install psql
-        run: sudo apt-get update && sudo apt-get install -y postgresql-client
-      - name: Apply stubs and migrations
-        run: |
-          $PSQL -f supabase/tests/00_supabase_stubs.sql
-          for f in supabase/migrations/*.sql; do
-            echo "Applying $f"
-            $PSQL -f "$f"
-          done
-      - name: Run RLS, lifecycle and dispatch checks
-        run: |
-          for t in supabase/tests/*_checks.sql; do
-            echo "Running $t"
-            $PSQL -f "$t" 2>&1 | tee -a out.txt
-          done
-          ! grep -q 'FAIL:' out.txt
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Apply migrations and run every check
+        run: npm run verify:db
