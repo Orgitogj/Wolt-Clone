@@ -90,6 +90,14 @@
           "merchantIdentifier": "merchant.com.orgito.WOLT",
           "enableGooglePay": true
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow $(PRODUCT_NAME) to access your photos so you can upload your courier documents.",
+          "cameraPermission": "Allow $(PRODUCT_NAME) to use the camera so you can photograph your courier documents.",
+          "microphonePermission": false
+        }
       ]
     ],
     "experiments": {
