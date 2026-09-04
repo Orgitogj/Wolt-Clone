@@ -1,6 +1,6 @@
 # Edge Functions
 
-Three Deno functions handle everything that needs a secret key or a trusted origin. They are the
+Four Deno functions handle everything that needs a secret key or a trusted origin. They are the
 only server-side code in the project; the app itself never talks to Stripe's API directly.
 
 | Function | Caller | Purpose |
@@ -8,6 +8,7 @@ only server-side code in the project; the app itself never talks to Stripe's API
 | `create-payment-intent` | The app, with the user's JWT | Verifies the caller owns the order, reads the amount **from the stored order**, creates a Stripe PaymentIntent and returns a client secret |
 | `stripe-webhook` | Stripe | Verifies the signature, then calls `confirm_payment` / `fail_payment` / `record_refund` |
 | `refund-order` | The app, admin only | Creates a Stripe refund; the resulting webhook is what actually records it |
+| `send-push` | A scheduler, with the service-role key | Claims unsent `notifications`, posts them to the Expo push API and discards tokens the device has unregistered |
 
 ## Why the amount is never sent from the app
 
@@ -31,6 +32,7 @@ unique `provider_event_id`, and `confirm_payment` returns early if the payment i
 supabase functions deploy create-payment-intent
 supabase functions deploy stripe-webhook --no-verify-jwt
 supabase functions deploy refund-order
+supabase functions deploy send-push
 ```
 
 `stripe-webhook` must use `--no-verify-jwt` because Stripe does not send a Supabase JWT. It is not
@@ -66,6 +68,43 @@ update public.platform_settings set card_payments_enabled = true;
 ```
 
 Also set `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` in `.env` and rebuild the app.
+
+## Sending pushes
+
+`send-push` is the worker behind the notification rows. It refuses any caller that does not present
+the service-role key, so it is never invoked from the app.
+
+Each run calls `claim_notifications_for_push()`, which stamps `pushed_at` and returns the unsent rows
+already joined to `push_tokens` in one statement, under `for update skip locked`. Two overlapping
+runs therefore cannot send the same notification twice. A recipient with no registered device is
+stamped as well, so it is not retried forever, and a notification older than a day is left alone
+rather than delivered stale.
+
+If the Expo request fails the handler calls `release_notifications_for_push()` to undo the claim, so
+a network blip delays a push instead of losing it. A ticket that comes back
+`DeviceNotRegistered` removes that token with `discard_push_token()`.
+
+Schedule it with pg_cron and pg_net. The project reference and the key are deployment specific, so
+this is not in a migration:
+
+```sql
+select vault.create_secret('<service-role-key>', 'service_role_key');
+
+select cron.schedule('wolt-send-push', '30 seconds', $job$
+  select net.http_post(
+    url := 'https://<project-ref>.supabase.co/functions/v1/send-push',
+    headers := jsonb_build_object(
+      'Content-Type', 'application/json',
+      'Authorization', 'Bearer ' || (
+        select decrypted_secret from vault.decrypted_secrets where name = 'service_role_key'
+      )
+    ),
+    body := '{"limit": 200}'::jsonb
+  );
+$job$);
+```
+
+Anything that can hold the key and call a URL on a timer works just as well.
 
 ## Local testing
 
