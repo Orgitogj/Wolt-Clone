@@ -1,22 +1,32 @@
+import type { PriceTier, RestaurantSort } from '@/services/restaurantService';
 import { create } from 'zustand';
+
+export const SORT_OPTIONS: RestaurantSort[] = [
+  'Recommended',
+  'Delivery price',
+  'Rating',
+  'Delivery time',
+];
+
+export const PRICE_TIERS: PriceTier[] = ['€', '€€', '€€€', '€€€€'];
 
 export interface RestaurantFilterState {
   selectedCuisines: string[];
-  selectedPrice: string | null;
+  selectedPrice: PriceTier | null;
   woltPlusOnly: boolean;
-  selectedSort: string;
+  selectedSort: RestaurantSort;
   toggleCuisine: (cuisine: string) => void;
-  setSelectedPrice: (price: string | null) => void;
+  setSelectedPrice: (price: PriceTier | null) => void;
   setWoltPlusOnly: (value: boolean) => void;
-  setSelectedSort: (sort: string) => void;
+  setSelectedSort: (sort: RestaurantSort) => void;
   clearFilters: () => void;
 }
 
 const initialState = {
   selectedCuisines: [] as string[],
-  selectedPrice: null as string | null,
+  selectedPrice: null as PriceTier | null,
   woltPlusOnly: false,
-  selectedSort: 'Recommended',
+  selectedSort: 'Recommended' as RestaurantSort,
 };
 
 export const useFilterStore = create<RestaurantFilterState>((set) => ({
