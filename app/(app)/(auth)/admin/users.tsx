@@ -34,7 +34,7 @@ const Page = () => {
   const { data: settings } = usePlatformSettings();
   const [search, setSearch] = useState('');
   const { data: users, isLoading, refetch, isRefetching } = useAdminUsers(search, isAdmin);
-  const { data: restaurants } = useRestaurants();
+  const { restaurants } = useRestaurants();
 
   const setRole = useSetUserRole();
   const setMember = useSetRestaurantMember();
@@ -66,7 +66,7 @@ const Page = () => {
   };
 
   const onUnlinkRestaurant = async (user: AdminUser, restaurantName: string) => {
-    const restaurant = (restaurants ?? []).find((item) => item.name === restaurantName);
+    const restaurant = restaurants.find((item) => item.name === restaurantName);
     if (!restaurant) return;
     try {
       await removeMember.mutateAsync({ restaurantId: restaurant.id, userId: user.id });
@@ -171,7 +171,7 @@ const Page = () => {
             </View>
 
             <ScrollView style={styles.restaurantList} nestedScrollEnabled>
-              {(restaurants ?? [])
+              {restaurants
                 .filter((restaurant) => !managed.includes(restaurant.name))
                 .map((restaurant) => (
                   <TouchableOpacity
