@@ -7,6 +7,7 @@ import {
 } from '@/constants/deliveryStatus';
 import { DocumentUpload } from '@/components/courier/DocumentUpload';
 import { Colors } from '@/constants/theme';
+import { useOrderChatUnreadTotals } from '@/hooks/useOrderChat';
 import {
   useActiveDelivery,
   useAdvanceDelivery,
@@ -50,6 +51,9 @@ const Page = () => {
 
   const isOnline = courier?.availability === 'online' || courier?.availability === 'busy';
   const { data: activeDelivery } = useActiveDelivery();
+  const { data: chatUnread } = useOrderChatUnreadTotals();
+  const courierUnread =
+    chatUnread?.find((entry) => entry.order_id === activeDelivery?.order_id)?.unread_count ?? 0;
   const { data: offers } = useDeliveryOffers(isApproved && isOnline && !activeDelivery);
 
   useCourierLocationSync(isApproved && isOnline);
@@ -315,6 +319,24 @@ const Page = () => {
               ))}
             </View>
 
+            {activeDelivery.order_id && (
+              <TouchableOpacity
+                style={styles.chatButton}
+                onPress={() => router.push(`/order/chat?id=${activeDelivery.order_id}`)}
+                accessibilityRole="button"
+                testID="courier-open-chat">
+                <Ionicons name="chatbubble-ellipses-outline" size={18} color={Colors.secondary} />
+                <Text style={styles.chatButtonText}>Message the customer</Text>
+                {courierUnread > 0 && (
+                  <View style={styles.chatBadge}>
+                    <Text style={styles.chatBadgeText}>
+                      {courierUnread > 9 ? '9+' : courierUnread}
+                    </Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+            )}
+
             {COURIER_NEXT_STEP[activeDelivery.status] && (
               <TouchableOpacity
                 style={[styles.primaryButton, advance.isPending && styles.buttonDisabled]}
@@ -410,6 +432,27 @@ const Page = () => {
 };
 
 const styles = StyleSheet.create({
+  chatButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
+    marginBottom: 10,
+  },
+  chatButtonText: { flex: 1, fontSize: 15, fontWeight: '600', color: Colors.secondary },
+  chatBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#B32433',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
   reviewCard: {
     alignItems: 'center',
     gap: 6,
