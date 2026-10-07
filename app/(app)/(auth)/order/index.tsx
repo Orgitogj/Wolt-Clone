@@ -2,19 +2,34 @@ import CheckoutButton from '@/components/buttons/CheckoutButton';
 import OrderItem from '@/components/OrderItem';
 import { RecommendedDish } from '@/components/RecommendedDish';
 import { Colors } from '@/constants/theme';
-import { useCartStore } from '@/hooks/use-cartstore';
+import { useCartContents } from '@/hooks/use-cartstore';
 import { usePopularDishes } from '@/hooks/useMenu';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Page = () => {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
-  const { items, selectedRestaurant } = useCartStore();
+  const { items, selectedRestaurant, isRestored } = useCartContents();
 
   const { data: recommendedDishes } = usePopularDishes(selectedRestaurant?.id ?? '');
+
+  if (!isRestored) {
+    return (
+      <View style={[styles.container, styles.restoring]} testID="basket-restoring">
+        <ActivityIndicator size="large" color={Colors.secondary} />
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
@@ -66,6 +81,10 @@ const Page = () => {
 };
 
 const styles = StyleSheet.create({
+  restoring: {
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   container: {
     flex: 1,
     overflow: 'hidden',

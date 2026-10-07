@@ -2,6 +2,7 @@ import { OrderStatusBadge } from '@/components/OrderStatusBadge';
 import { DELIVERY_STATUS_LABELS } from '@/constants/deliveryStatus';
 import { orderStatusLabel } from '@/constants/orderStatus';
 import { Colors } from '@/constants/theme';
+import { useOrderChatAccess, useOrderChatUnreadTotals } from '@/hooks/useOrderChat';
 import { useOrderTracking } from '@/hooks/useOrderTracking';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
 import { Ionicons } from '@expo/vector-icons';
@@ -10,6 +11,7 @@ import { useEffect, useRef } from 'react';
 import {
   ActivityIndicator,
   Platform,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -28,8 +30,26 @@ const Page = () => {
   const mapRef = useRef<MapView>(null);
   const { data: settings } = usePlatformSettings();
 
-  const { order, delivery, history, courier, courierPosition, isLive, isLoading } =
-    useOrderTracking(id);
+  const {
+    order,
+    delivery,
+    history,
+    courier,
+    courierPosition,
+    isLive,
+    isLoading,
+    error,
+    isRefetching,
+    connection,
+    isStale,
+    isPollingExhausted,
+    refetch,
+  } = useOrderTracking(id);
+
+  const { data: chatAccess } = useOrderChatAccess(id);
+  const { data: chatUnread } = useOrderChatUnreadTotals();
+  const unreadMessages =
+    chatUnread?.find((entry) => entry.order_id === id)?.unread_count ?? 0;
 
   const currency = settings?.currency === 'EUR' ? '€' : (settings?.currency ?? '');
 
@@ -57,6 +77,19 @@ const Page = () => {
     );
   }
 
+  if (error && !order) {
+    return (
+      <View style={styles.centered} testID="track-error">
+        <Ionicons name="cloud-offline-outline" size={48} color={Colors.muted} />
+        <Text style={styles.emptyTitle}>We could not load this order</Text>
+        <Text style={styles.connectionText}>Check your connection and try again.</Text>
+        <TouchableOpacity onPress={refetch} accessibilityRole="button" testID="track-retry">
+          <Text style={styles.link}>Try again</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   if (!order) {
     return (
       <View style={styles.centered}>
@@ -68,6 +101,15 @@ const Page = () => {
       </View>
     );
   }
+
+  const connectionNotice =
+    connection === 'disconnected' && isPollingExhausted
+      ? 'Live updates stopped. Pull to refresh for the latest status.'
+      : isStale
+        ? 'Live updates are delayed. Showing the last confirmed status.'
+        : connection === 'disconnected'
+          ? 'Reconnecting to live updates...'
+          : null;
 
   const initialRegion = {
     latitude:
@@ -152,7 +194,44 @@ const Page = () => {
 
       <ScrollView
         style={styles.sheet}
-        contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 32 }]}>
+        contentContainerStyle={[styles.sheetContent, { paddingBottom: insets.bottom + 32 }]}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} />}>
+        {!!connectionNotice && (
+          <View style={styles.connectionBanner} testID="track-connection-notice">
+            <Ionicons name="cloud-offline-outline" size={16} color="#8A6100" />
+            <Text style={styles.connectionText}>{connectionNotice}</Text>
+            <TouchableOpacity onPress={refetch} accessibilityRole="button">
+              <Text style={styles.connectionAction}>Refresh</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {chatAccess?.can_read && (
+          <TouchableOpacity
+            style={styles.chatRow}
+            onPress={() => router.push(`/order/chat?id=${id}`)}
+            accessibilityRole="button"
+            testID="track-open-chat">
+            <Ionicons name="chatbubble-ellipses-outline" size={20} color={Colors.secondary} />
+            <View style={{ flex: 1 }}>
+              <Text style={styles.chatTitle}>
+                {chatAccess.can_send ? 'Message your courier' : 'Conversation'}
+              </Text>
+              <Text style={styles.chatSubtitle}>
+                {chatAccess.counterpart_name ?? 'Order messages'}
+              </Text>
+            </View>
+            {unreadMessages > 0 && (
+              <View style={styles.chatBadge}>
+                <Text style={styles.chatBadgeText}>
+                  {unreadMessages > 9 ? '9+' : unreadMessages}
+                </Text>
+              </View>
+            )}
+            <Ionicons name="chevron-forward" size={18} color="#999" />
+          </TouchableOpacity>
+        )}
+
         <View style={styles.statusRow}>
           <View style={styles.statusLeft}>
             <Text style={styles.restaurant}>{order.restaurant?.name ?? 'Restaurant'}</Text>
@@ -235,6 +314,46 @@ const Page = () => {
 };
 
 const styles = StyleSheet.create({
+  chatRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 14,
+    borderRadius: 12,
+    backgroundColor: Colors.primaryLight,
+    marginBottom: 12,
+  },
+  chatTitle: { fontSize: 15, fontWeight: '700', color: Colors.secondary },
+  chatSubtitle: { fontSize: 13, color: Colors.muted },
+  chatBadge: {
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
+    paddingHorizontal: 5,
+    backgroundColor: '#B32433',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chatBadgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
+  connectionBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3D6',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 12,
+  },
+  connectionText: {
+    flex: 1,
+    fontSize: 13,
+    color: '#8A6100',
+  },
+  connectionAction: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.secondary,
+  },
   container: { flex: 1, backgroundColor: Colors.background },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 8, padding: 24 },
   mapWrapper: { height: MAP_HEIGHT, backgroundColor: '#e9eef1' },
