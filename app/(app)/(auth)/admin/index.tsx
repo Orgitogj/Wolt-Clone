@@ -31,6 +31,10 @@ const NAV = [
   { href: '/admin/couriers', icon: 'bicycle-outline', title: 'Couriers', text: 'Applications and fleet' },
   { href: '/admin/users', icon: 'people-outline', title: 'People', text: 'Roles and restaurant access' },
   { href: '/admin/settings', icon: 'options-outline', title: 'Settings', text: 'Fees, limits and payments' },
+  { href: '/admin/reviews', icon: 'star-outline', title: 'Reviews', text: 'Moderate customer reviews' },
+  { href: '/admin/promotions', icon: 'pricetags-outline', title: 'Promotions', text: 'Promo codes and offers' },
+  { href: '/admin/reconciliations', icon: 'cash-outline', title: 'Refunds', text: 'Captured money waiting to be returned' },
+  { href: '/admin/support', icon: 'help-buoy-outline', title: 'Support', text: 'Reported problems and refunds' },
 ] as const;
 
 const Page = () => {
