@@ -1,11 +1,12 @@
 import { Colors } from '@/constants/theme';
 import { useFilterStore } from '@/hooks/use-filters-store';
-import { useRestaurantMarkers, useRestaurants } from '@/hooks/useRestaurants';
+import { useRestaurantsInBounds } from '@/hooks/useRestaurants';
+import type { MapBounds } from '@/services/restaurantService';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import * as Location from 'expo-location';
 import { Link, useRouter } from 'expo-router';
-import { useEffect, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Platform,
@@ -15,7 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_DEFAULT, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_REGION = {
@@ -25,14 +26,43 @@ const DEFAULT_REGION = {
   longitudeDelta: 0.05,
 };
 
+const CARD_WIDTH = 240;
+
+const regionToBounds = (region: Region) => ({
+  minLat: region.latitude - region.latitudeDelta / 2,
+  maxLat: region.latitude + region.latitudeDelta / 2,
+  minLng: region.longitude - region.longitudeDelta / 2,
+  maxLng: region.longitude + region.longitudeDelta / 2,
+});
+
 const Page = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const mapRef = useRef<MapView>(null);
+  const carouselRef = useRef<ScrollView>(null);
 
-  const { data: restaurants, isLoading: restaurantsLoading } = useRestaurants();
-  const { data: restaurantMarkers, isLoading: markersLoading } = useRestaurantMarkers();
   const { selectedCuisines, selectedPrice, woltPlusOnly, selectedSort } = useFilterStore();
+  const [bounds, setBounds] = useState<MapBounds | null>(regionToBounds(DEFAULT_REGION));
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  const {
+    data: visibleRestaurants,
+    isLoading: restaurantsLoading,
+    isFetching: restaurantsFetching,
+    error: restaurantsError,
+    refetch: refetchRestaurants,
+  } = useRestaurantsInBounds(bounds, {
+    cuisines: selectedCuisines.length ? selectedCuisines : undefined,
+    priceTier: selectedPrice,
+    woltPlusOnly,
+    sort: selectedSort,
+  });
+
+  const restaurants = visibleRestaurants ?? [];
+
+  const onRegionChangeComplete = useCallback((region: Region) => {
+    setBounds(regionToBounds(region));
+  }, []);
 
   const locateMe = async () => {
     try {
@@ -61,46 +91,12 @@ const Page = () => {
     getCurrentLocation();
   }, []);
 
-  const filteredRestaurants = (restaurants ?? []).filter((restaurant) => {
-    const matchesCuisine =
-      selectedCuisines.length === 0 ||
-      selectedCuisines.some((cuisine) => restaurant.cuisines.includes(cuisine));
-
-    const matchesPrice =
-      !selectedPrice ||
-      (selectedPrice === '€' && restaurant.delivery_fee <= 1.5) ||
-      (selectedPrice === '€€' && restaurant.delivery_fee > 1.5 && restaurant.delivery_fee <= 2.5) ||
-      (selectedPrice === '€€€' && restaurant.delivery_fee > 2.5 && restaurant.delivery_fee <= 3.5) ||
-      (selectedPrice === '€€€€' && restaurant.delivery_fee > 3.5);
-
-    const matchesWoltPlus = !woltPlusOnly || restaurant.tags.some((tag) => tag.includes('Wolt+'));
-
-    return matchesCuisine && matchesPrice && matchesWoltPlus;
-  });
-
-  const sortedRestaurants = [...filteredRestaurants].sort((a, b) => {
-    switch (selectedSort) {
-      case 'Delivery price':
-        return a.delivery_fee - b.delivery_fee;
-      case 'Rating':
-        return b.rating - a.rating;
-      case 'Delivery time':
-        return a.delivery_time_min - b.delivery_time_min;
-      default:
-        return 0;
-    }
-  });
-
-  if (restaurantsLoading || markersLoading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size={'large'} color={Colors.secondary} />
-      </View>
-    );
-  }
-
   const markerSelected = (id: string) => {
-    router.push(`/(modal)/(restaurant)/${id}`);
+    setSelectedId(id);
+    const index = restaurants.findIndex((restaurant) => restaurant.id === id);
+    if (index >= 0) {
+      carouselRef.current?.scrollTo({ x: index * CARD_WIDTH, animated: true });
+    }
   };
 
   return (
@@ -125,42 +121,63 @@ const Page = () => {
         ref={mapRef}
         style={StyleSheet.absoluteFill}
         provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
-        initialRegion={
-          restaurantMarkers?.[0]
-            ? {
-                latitude: restaurantMarkers[0].latitude ?? DEFAULT_REGION.latitude,
-                longitude: restaurantMarkers[0].longitude ?? DEFAULT_REGION.longitude,
-                latitudeDelta: 0.05,
-                longitudeDelta: 0.05,
-              }
-            : DEFAULT_REGION
-        }
-      >
-        {restaurantMarkers
-          ?.filter((marker) => marker.latitude != null && marker.longitude != null)
-          .map((marker) => (
+        initialRegion={DEFAULT_REGION}
+        onRegionChangeComplete={onRegionChangeComplete}>
+        {restaurants
+          .filter((restaurant) => restaurant.latitude != null && restaurant.longitude != null)
+          .map((restaurant) => (
             <Marker
-              key={marker.id}
+              key={restaurant.id}
               coordinate={{
-                latitude: marker.latitude!,
-                longitude: marker.longitude!,
+                latitude: restaurant.latitude!,
+                longitude: restaurant.longitude!,
               }}
-              title={marker.name}
-              pinColor={Colors.muted}
-              onPress={() => markerSelected(marker.id)}
+              title={restaurant.name}
+              pinColor={restaurant.id === selectedId ? Colors.primary : Colors.muted}
+              onPress={() => markerSelected(restaurant.id)}
             />
           ))}
       </MapView>
 
+      {restaurantsLoading && (
+        <View style={styles.statusPill}>
+          <ActivityIndicator size="small" color={Colors.secondary} />
+          <Text style={styles.statusPillText}>Loading venues</Text>
+        </View>
+      )}
+
+      {!restaurantsLoading && restaurantsFetching && (
+        <View style={styles.statusPill}>
+          <ActivityIndicator size="small" color={Colors.secondary} />
+          <Text style={styles.statusPillText}>Updating this area</Text>
+        </View>
+      )}
+
+      {!!restaurantsError && (
+        <View style={styles.statusPill}>
+          <Text style={styles.statusPillText}>Could not load this area</Text>
+          <TouchableOpacity onPress={() => refetchRestaurants()} accessibilityRole="button">
+            <Text style={styles.statusPillAction}>Retry</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
+      {!restaurantsLoading && !restaurantsError && restaurants.length === 0 && (
+        <View style={styles.statusPill}>
+          <Text style={styles.statusPillText}>No venues in this area</Text>
+        </View>
+      )}
+
       <View style={styles.footerScroll}>
         <ScrollView
+          ref={carouselRef}
           horizontal
           showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}>
-          {sortedRestaurants.map((restaurant) => (
+          {restaurants.map((restaurant) => (
             <TouchableOpacity
               key={restaurant.id}
-              style={styles.card}
+              style={[styles.card, restaurant.id === selectedId && styles.cardSelected]}
               onPress={() => router.push(`/(modal)/(restaurant)/${restaurant.id}`)}>
               <Image source={{ uri: restaurant.image_url ?? undefined }} style={styles.cardImage} />
               <View style={styles.cardContent}>
@@ -219,6 +236,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
+  },
+  statusPill: {
+    position: 'absolute',
+    top: 110,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fff',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    boxShadow: '0px 4px 2px -2px rgba(0, 0, 0, 0.1)',
+  },
+  statusPillText: {
+    fontSize: 13,
+    color: Colors.muted,
+  },
+  statusPillAction: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: Colors.secondary,
+  },
+  cardSelected: {
+    borderWidth: 2,
+    borderColor: Colors.primary,
   },
   footerScroll: {
     position: 'absolute',
@@ -287,11 +330,5 @@ const styles = StyleSheet.create({
   cardFooterText: {
     fontSize: 12,
     color: '#666',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#fff',
   },
 });

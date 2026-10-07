@@ -1,13 +1,9 @@
 import { Colors, Fonts } from '@/constants/theme';
-import { useFilterStore } from '@/hooks/use-filters-store';
+import { PRICE_TIERS, SORT_OPTIONS, useFilterStore } from '@/hooks/use-filters-store';
 import { useCuisines } from '@/hooks/useRestaurants';
 import { useRouter } from 'expo-router';
 import { ActivityIndicator, ScrollView, StyleSheet, Switch, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-const priceFilters = ['€', '€€', '€€€', '€€€€'];
-
-const sortOptions = ['Recommended', 'Delivery price', 'Rating', 'Delivery time'];
 
 const Page = () => {
   const router = useRouter();
@@ -61,7 +57,7 @@ const Page = () => {
         <View style={styles.filterSection}>
           <Text style={styles.sectionTitle}>PRICE</Text>
           <View style={styles.chipContainer}>
-            {priceFilters.map((price) => (
+            {PRICE_TIERS.map((price) => (
               <TouchableOpacity
                 key={price}
                 style={[styles.chip, selectedPrice === price && styles.chipSelected]}
@@ -88,7 +84,7 @@ const Page = () => {
         <View style={styles.filterSection}>
           <Text style={styles.sectionTitle}>SORT BY</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipContainer}>
-            {sortOptions.map((option) => (
+            {SORT_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option}
                 style={[styles.chip, selectedSort === option && styles.chipSelected]}
