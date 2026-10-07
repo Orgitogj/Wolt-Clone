@@ -21,6 +21,7 @@ export interface CreateOrderInput {
   leaveAtDoor: boolean;
   sendAsGift: boolean;
   idempotencyKey: string;
+  promoCode?: string | null;
 }
 
 export interface FeeInput {
@@ -50,6 +51,7 @@ export const orderService = {
       p_leave_at_door: input.leaveAtDoor,
       p_send_as_gift: input.sendAsGift,
       p_idempotency_key: input.idempotencyKey,
+      p_promo_code: input.promoCode ?? null,
     });
     if (error) throw error;
     return data as Order;
