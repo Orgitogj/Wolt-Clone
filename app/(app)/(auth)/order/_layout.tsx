@@ -44,6 +44,60 @@ const Layout = () => {
         }}
       />
       <Stack.Screen
+        name="chat"
+        options={{
+          title: 'Messages',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
+        name="reorder"
+        options={{
+          title: 'Order again',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
+        name="review"
+        options={{
+          title: 'Rate your order',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
+        name="support"
+        options={{
+          title: 'Report a problem',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
+        name="support-tickets"
+        options={{
+          title: 'Your reports',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
+        name="support-ticket"
+        options={{
+          title: 'Your report',
+          contentStyle: {
+            backgroundColor: '#fff',
+          },
+        }}
+      />
+      <Stack.Screen
         name="schedule"
         options={{
           title: 'Schedule delivery',
