@@ -113,3 +113,38 @@ supabase functions serve
 stripe listen --forward-to localhost:54321/functions/v1/stripe-webhook
 stripe trigger payment_intent.succeeded
 ```
+
+## reconcile-payments
+
+Returns captured money for orders that closed before the payment landed. `confirm_payment()` queues a
+`payment_reconciliations` row; this worker drains it.
+
+It is authenticated the same way as `send-push`: the request must carry
+`Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`, compared in constant time, and anything else is
+rejected with 401.
+
+Before issuing any refund it lists the refunds Stripe already holds for the payment intent and
+matches on `metadata.reconciliation_id`. That is what makes a crash between Stripe success and
+database persistence safe, and it keeps working past Stripe's 24 hour idempotency retention window,
+where replaying the stored key would otherwise create a second refund. A refund is only reported as
+finished when the provider says `succeeded`; `pending` and `processing` are recorded and retried. If
+the intent is already fully refunded by someone else, the job settles without refunding again.
+
+### Scheduling
+
+Migration `0026` registers the pg_cron job `wolt-reconcile-payments` (every five minutes), which
+calls `public.invoke_reconcile_payments()`. That function reads the function base URL and the service
+role key from **Supabase Vault**, so no credential appears in a committed migration, in a log line or
+in the client bundle. It no-ops with a notice where `pg_cron`, `pg_net` or Vault are unavailable, so
+local verification runs unaffected.
+
+Store the secrets once per environment:
+
+```bash
+SUPABASE_DB_URL='postgres://...' WOLT_FUNCTIONS_URL='https://<project-ref>.supabase.co/functions/v1' SUPABASE_SERVICE_ROLE_KEY='<service role key>' npm run configure:refund-worker
+```
+
+The script is idempotent: it updates the Vault entries when they already exist and reports whether
+the cron job is registered. Deploy the function with `supabase functions deploy reconcile-payments`.
+Until both steps run the queue simply accumulates, stays visible under **Admin → Refunds**, and
+nothing is reported as refunded.
