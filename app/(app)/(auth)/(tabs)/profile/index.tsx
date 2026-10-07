@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
+    Alert,
     Linking,
     ScrollView,
     Share,
@@ -33,14 +34,20 @@ const Page = () => {
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
   const [isEditingProfile, setIsEditingProfile] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     setFullName(profile?.full_name ?? '');
     setPhone(profile?.phone ?? '');
   }, [profile]);
 
-  const onLogout = () => {
-    signOut();
+  const onLogout = async () => {
+    setIsSigningOut(true);
+    const { error } = await signOut();
+    setIsSigningOut(false);
+    if (error) {
+      Alert.alert('Could not sign out', 'Please check your connection and try again.');
+    }
   };
 
   const onInviteFriends = () => {
@@ -181,6 +188,17 @@ const Page = () => {
           </View>
           <Ionicons name="chevron-forward" size={20} color="#999" />
         </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          onPress={() => router.push('/order/support-tickets')}
+          testID="profile-support-tickets">
+          <View style={styles.menuItemLeft}>
+            <Text style={styles.menuItemTitle}>Help with an order</Text>
+            <Text style={styles.menuItemSubtitle}>See the problems you reported</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={20} color="#999" />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.section}>
@@ -253,8 +271,15 @@ const Page = () => {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
-        <Text style={styles.logoutButtonText}>Sign out</Text>
+      <TouchableOpacity
+        style={styles.logoutButton}
+        onPress={onLogout}
+        disabled={isSigningOut}
+        accessibilityRole="button"
+        accessibilityState={{ disabled: isSigningOut }}>
+        <Text style={styles.logoutButtonText}>
+          {isSigningOut ? 'Signing out...' : 'Sign out'}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );
