@@ -7,7 +7,7 @@ on:
 
 jobs:
   static:
-    name: Typecheck and lint
+    name: Typecheck, lint and test
     runs-on: ubuntu-latest
     env:
       EXPO_PUBLIC_SUPABASE_URL: https://example.supabase.co
@@ -21,6 +21,7 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run lint
+      - run: npm test -- --ci
 
   secrets:
     name: No service-role key in the client bundle
@@ -51,3 +52,25 @@ jobs:
           node-version: 20
       - name: Apply migrations and run every check
         run: npm run verify:db
+
+  concurrency:
+    name: Concurrent redemption, chat and refund races
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Race redemption, chat assignment and support refunds on real connections
+        run: npm run verify:db:concurrent
+
+  rpc-compat:
+    name: Client RPC requests through PostgREST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Call create_order and the support RPCs the way the app does
+        run: npm run verify:rpc-compat

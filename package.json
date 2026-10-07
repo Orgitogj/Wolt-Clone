@@ -11,7 +11,12 @@
     "lint": "expo lint",
     "seed": "node scripts/seed.mjs",
     "verify:db": "node scripts/verify-db.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "jest",
+    "test:watch": "jest --watchAll",
+    "verify:db:concurrent": "node scripts/verify-db-concurrent.mjs",
+    "verify:rpc-compat": "node scripts/verify-rpc-compat.mjs",
+    "configure:refund-worker": "node scripts/configure-refund-worker.mjs"
   },
   "dependencies": {
     "@expo-google-fonts/nunito": "^0.4.2",
@@ -23,13 +28,13 @@
     "@react-navigation/bottom-tabs": "^7.4.0",
     "@react-navigation/elements": "^2.6.3",
     "@react-navigation/native": "^7.1.8",
-    "@react-navigation/native-stack": "^7.18.5",
-    "@sentry/react-native": "^8.19.0",
+    "@react-navigation/native-stack": "^7.3.16",
+    "@sentry/react-native": "~7.2.0",
     "@stripe/stripe-react-native": "0.50.3",
     "@supabase/supabase-js": "^2.112.2",
     "@tanstack/react-query": "^5.101.2",
-    "expo": "~54.0.35",
-    "expo-constants": "~18.0.13",
+    "expo": "~54.0.37",
+    "expo-constants": "~18.0.14",
     "expo-crypto": "~15.0.9",
     "expo-dev-client": "~6.0.21",
     "expo-file-system": "~19.0.24",
@@ -63,10 +68,28 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
+    "@testing-library/react-native": "13.3.3",
+    "@types/jest": "29.5.14",
     "@types/react": "~19.1.0",
     "eslint": "^9.25.0",
     "eslint-config-expo": "~10.0.0",
+    "jest": "~29.7.0",
+    "jest-expo": "~54.0.18",
+    "react-test-renderer": "19.1.0",
     "typescript": "~5.9.2"
   },
-  "private": true
+  "private": true,
+  "jest": {
+    "preset": "jest-expo",
+    "setupFilesAfterEnv": [
+      "<rootDir>/jest.setup.js"
+    ],
+    "testMatch": [
+      "<rootDir>/__tests__/**/*.test.ts",
+      "<rootDir>/__tests__/**/*.test.tsx"
+    ],
+    "transformIgnorePatterns": [
+      "node_modules/(?!((jest-)?react-native|@react-native(-community)?)|expo(nent)?|@expo(nent)?/.*|@expo-google-fonts/.*|react-navigation|@react-navigation/.*|@sentry/react-native|native-base|react-native-svg|react-native-reanimated|@shopify/.*)"
+    ]
+  }
 }

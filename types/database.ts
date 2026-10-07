@@ -564,3 +564,329 @@ export interface AdminActionLog {
 export type PlatformSettingsPatch = Partial<
   Omit<PlatformSettings, 'id' | 'updated_at'>
 >;
+
+export type ReviewStatus = 'visible' | 'hidden' | 'removed';
+
+export type ReviewEligibilityReason =
+  | 'eligible'
+  | 'not_found'
+  | 'not_your_order'
+  | 'not_delivered'
+  | 'already_reviewed';
+
+export interface ReviewEligibility {
+  can_review: boolean;
+  reason: ReviewEligibilityReason;
+  review_id: string | null;
+}
+
+export interface Review {
+  id: string;
+  order_id: string;
+  restaurant_id: string;
+  user_id: string;
+  rating: number;
+  body: string | null;
+  status: ReviewStatus;
+  moderated_by: string | null;
+  moderated_at: string | null;
+  moderation_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PublicReview {
+  id: string;
+  rating: number;
+  body: string | null;
+  created_at: string;
+  updated_at: string;
+  reviewer_name: string;
+  is_mine: boolean;
+  response_body: string | null;
+  response_created_at: string | null;
+}
+
+export interface ReviewSummary {
+  review_count: number;
+  average_rating: number;
+  rating_breakdown: Record<string, number>;
+}
+
+export interface MyReview {
+  id: string;
+  order_id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  rating: number;
+  body: string | null;
+  status: ReviewStatus;
+  created_at: string;
+  updated_at: string;
+  response_body: string | null;
+}
+
+export interface ReviewResponse {
+  review_id: string;
+  restaurant_id: string;
+  responder_id: string | null;
+  body: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ManagedReview {
+  id: string;
+  restaurant_id: string;
+  restaurant_name: string;
+  rating: number;
+  body: string | null;
+  status: ReviewStatus;
+  created_at: string;
+  moderation_reason: string | null;
+  reviewer_name: string;
+  response_body: string | null;
+}
+
+export type DiscountType = 'percentage' | 'fixed';
+
+export type PromotionRejectionReason =
+  | 'eligible'
+  | 'not_found'
+  | 'not_signed_in'
+  | 'not_started'
+  | 'expired'
+  | 'wrong_restaurant'
+  | 'below_minimum'
+  | 'fully_redeemed'
+  | 'already_used';
+
+export interface Promotion {
+  id: string;
+  code: string;
+  description: string | null;
+  discount_type: DiscountType;
+  discount_value: number;
+  max_discount: number | null;
+  min_subtotal: number;
+  restaurant_id: string | null;
+  starts_at: string | null;
+  ends_at: string | null;
+  max_redemptions: number | null;
+  max_per_customer: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface AdminPromotion extends Omit<Promotion, 'created_by'> {
+  restaurant_name: string | null;
+  redeemed_count: number;
+}
+
+export interface PromotionEvaluation {
+  valid: boolean;
+  reason: PromotionRejectionReason;
+  discount_amount: number;
+  promotion_id: string | null;
+  description: string | null;
+}
+
+export interface PromotionSnapshot {
+  promotion_id: string;
+  code: string;
+  description: string | null;
+  discount_type: DiscountType;
+  discount_value: number;
+  max_discount: number | null;
+  min_subtotal: number;
+  eligible_subtotal: number;
+  discount_amount: number;
+  applied_at: string;
+}
+
+export type ChatRole = 'customer' | 'courier';
+
+export type ChatAccessReason = 'no_access' | 'no_courier_yet' | 'order_closed' | 'open';
+
+export interface OrderChatAccess {
+  can_read: boolean;
+  can_send: boolean;
+  chat_role: ChatRole | null;
+  courier_assigned: boolean;
+  order_status: string;
+  counterpart_name: string | null;
+  reason: ChatAccessReason;
+}
+
+export interface OrderMessage {
+  id: string;
+  client_message_id: string;
+  sender_id: string;
+  sender_role: ChatRole;
+  body: string;
+  created_at: string;
+  is_mine: boolean;
+}
+
+export type OutgoingMessageState = 'pending' | 'failed';
+
+export interface OutgoingMessage {
+  client_message_id: string;
+  body: string;
+  state: OutgoingMessageState;
+  created_at: string;
+}
+
+export interface OrderChatUnread {
+  order_id: string;
+  unread_count: number;
+}
+
+export type ReconciliationState = 'pending' | 'in_progress' | 'resolved' | 'abandoned';
+
+export interface AdminReconciliation {
+  id: string;
+  order_id: string;
+  payment_id: string;
+  provider_intent_id: string | null;
+  amount: number;
+  currency: string | null;
+  state: ReconciliationState;
+  attempts: number;
+  last_error: string | null;
+  last_attempt_at: string | null;
+  next_attempt_at: string;
+  lease_active: boolean;
+  provider_status: string | null;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+export type SupportCategory =
+  | 'missing_items'
+  | 'incorrect_items'
+  | 'late_delivery'
+  | 'not_delivered'
+  | 'other';
+
+export type SupportTicketStatus = 'open' | 'in_review' | 'resolved';
+
+export type SupportRefundState = 'reserved' | 'confirmed' | 'failed' | 'cancelled';
+
+export type SupportSenderRole = 'customer' | 'admin';
+
+export type SupportReportReason =
+  | 'eligible'
+  | 'not_your_order'
+  | 'unknown_order'
+  | 'not_delivered_yet'
+  | 'too_old'
+  | 'already_open'
+  | 'too_many_tickets';
+
+export interface SupportReportEligibility {
+  can_report: boolean;
+  reason: SupportReportReason;
+  open_ticket_id: string | null;
+  closes_at: string | null;
+}
+
+export interface SupportTicketSummary {
+  id: string;
+  order_id: string;
+  restaurant_name: string | null;
+  category: SupportCategory;
+  status: SupportTicketStatus;
+  description: string;
+  created_at: string;
+  updated_at: string;
+  unread_count: number;
+  refunded_amount: number;
+  pending_refund: number;
+}
+
+export interface SupportTicketDetails {
+  id: string;
+  order_id: string;
+  user_id: string;
+  restaurant_name: string | null;
+  category: SupportCategory;
+  status: SupportTicketStatus;
+  description: string;
+  assigned_admin_id: string | null;
+  assigned_admin_name: string | null;
+  revision: number;
+  reopened_count: number;
+  created_at: string;
+  updated_at: string;
+  resolved_at: string | null;
+  order_total: number;
+  payment_method: string;
+  viewer_role: SupportSenderRole;
+}
+
+export interface SupportReportedItem {
+  order_item_id: string;
+  dish_name: string | null;
+  reported_quantity: number;
+  ordered_quantity: number;
+  unit_price: number;
+}
+
+export interface SupportMessage {
+  id: string;
+  client_message_id: string;
+  sender_role: SupportSenderRole;
+  body: string;
+  created_at: string;
+  is_mine: boolean;
+}
+
+export interface SupportRefund {
+  id: string;
+  amount: number;
+  currency: string;
+  method: 'card' | 'cash';
+  liability: 'platform' | 'restaurant';
+  state: SupportRefundState;
+  reason: string;
+  failure_reason: string | null;
+  approved_at: string;
+  settled_at: string | null;
+}
+
+export interface OrderRefundSummary {
+  charged: number;
+  confirmed_refunds: number;
+  reserved_refunds: number;
+  remaining_refundable: number;
+  currency: string;
+  method: 'card' | 'cash';
+}
+
+export interface AdminSupportTicket {
+  id: string;
+  order_id: string;
+  user_id: string;
+  customer_name: string | null;
+  restaurant_name: string | null;
+  category: SupportCategory;
+  status: SupportTicketStatus;
+  description: string;
+  assigned_admin_id: string | null;
+  assigned_admin_name: string | null;
+  revision: number;
+  created_at: string;
+  updated_at: string;
+  order_total: number;
+  payment_method: string;
+  refunded_amount: number;
+  reserved_amount: number;
+}
+
+export interface SupportReportDraftItem {
+  order_item_id: string;
+  quantity: number;
+}
+
+export type SupportAssignmentFilter = 'all' | 'unassigned' | 'mine';
