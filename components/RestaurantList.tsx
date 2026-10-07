@@ -1,133 +1,186 @@
+import RestaurantCard from '@/components/RestaurantCard';
 import { Colors } from '@/constants/theme';
 import type { Restaurant } from '@/types/database';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { Image } from 'expo-image';
-import { Link } from 'expo-router';
-import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useRouter } from 'expo-router';
+import type { ReactElement } from 'react';
+import { useCallback } from 'react';
+import {
+  ActivityIndicator,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from 'react-native';
+import Animated, {
+  useAnimatedScrollHandler,
+  type SharedValue,
+} from 'react-native-reanimated';
 
 interface RestaurantListProps {
   restaurants: Restaurant[];
   isLoading?: boolean;
   error?: unknown;
   emptyMessage?: string;
+  onRetry?: () => void;
+  onEndReached?: () => void;
+  isFetchingNextPage?: boolean;
+  isFetchNextPageError?: boolean;
+  onRetryNextPage?: () => void;
+  ListHeaderComponent?: ReactElement;
+  contentContainerStyle?: StyleProp<ViewStyle>;
+  scrollOffset?: SharedValue<number>;
 }
 
-const RestaurantList = ({ restaurants, isLoading, error, emptyMessage }: RestaurantListProps) => {
-  if (isLoading) {
-    return (
-      <View style={{ paddingVertical: 24 }}>
-        <ActivityIndicator size={'large'} color={Colors.secondary} />
-      </View>
-    );
-  }
+export const RestaurantListError = ({ onRetry }: { onRetry?: () => void }) => (
+  <View style={styles.stateContainer}>
+    <Ionicons name="cloud-offline-outline" size={40} color={Colors.muted} />
+    <Text style={styles.stateTitle}>We could not load restaurants</Text>
+    <Text style={styles.stateBody}>Check your connection and try again.</Text>
+    {onRetry && (
+      <TouchableOpacity style={styles.retryButton} onPress={onRetry} accessibilityRole="button">
+        <Text style={styles.retryButtonText}>Try again</Text>
+      </TouchableOpacity>
+    )}
+  </View>
+);
 
-  if (error) {
-    return (
-      <View style={{ padding: 16, alignItems: 'center' }}>
-        <Text style={{ color: Colors.dark, marginBottom: 8 }}>Failed to load restaurants</Text>
-        <Text style={{ color: Colors.muted }}>
-          {error instanceof Error ? error.message : 'Please try again later'}
-        </Text>
-      </View>
-    );
-  }
+const RestaurantList = ({
+  restaurants,
+  isLoading,
+  error,
+  emptyMessage,
+  onRetry,
+  onEndReached,
+  isFetchingNextPage,
+  isFetchNextPageError,
+  onRetryNextPage,
+  ListHeaderComponent,
+  contentContainerStyle,
+  scrollOffset,
+}: RestaurantListProps) => {
+  const router = useRouter();
 
-  if (restaurants.length === 0) {
+  const scrollHandler = useAnimatedScrollHandler({
+    onScroll: (event) => {
+      if (scrollOffset) {
+        scrollOffset.value = event.contentOffset.y;
+      }
+    },
+  });
+
+  const renderItem = useCallback(
+    ({ item }: { item: Restaurant }) => (
+      <RestaurantCard
+        restaurant={item}
+        onPress={() => router.push(`/(modal)/(restaurant)/${item.id}`)}
+      />
+    ),
+    [router]
+  );
+
+  const keyExtractor = useCallback((item: Restaurant) => item.id, []);
+
+  const listEmpty = () => {
+    if (isLoading) {
+      return (
+        <View style={styles.stateContainer} testID="restaurant-list-loading">
+          <ActivityIndicator size="large" color={Colors.secondary} />
+        </View>
+      );
+    }
+
+    if (error) {
+      return <RestaurantListError onRetry={onRetry} />;
+    }
+
     return (
-      <View style={{ padding: 24, alignItems: 'center' }}>
+      <View style={styles.stateContainer}>
         <Ionicons name="restaurant-outline" size={40} color={Colors.muted} />
-        <Text style={{ color: Colors.muted, marginTop: 8, textAlign: 'center' }}>
-          {emptyMessage ?? 'No restaurants match right now.'}
-        </Text>
+        <Text style={styles.stateBody}>{emptyMessage ?? 'No restaurants match right now.'}</Text>
       </View>
     );
-  }
+  };
+
+  const renderFooter = () => {
+    if (isFetchingNextPage) {
+      return (
+        <View style={styles.footer} testID="restaurant-list-next-page-loading">
+          <ActivityIndicator color={Colors.secondary} />
+        </View>
+      );
+    }
+
+    if (isFetchNextPageError) {
+      return (
+        <View style={styles.footer} testID="restaurant-list-next-page-error">
+          <Text style={styles.stateBody}>We could not load more restaurants.</Text>
+          {onRetryNextPage && (
+            <TouchableOpacity
+              style={styles.retryButton}
+              onPress={onRetryNextPage}
+              accessibilityRole="button">
+              <Text style={styles.retryButtonText}>Load more</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+      );
+    }
+
+    return null;
+  };
 
   return (
-    <>
-      {restaurants.map((item) => (
-        <View key={item.id}>
-          <Link href={`/(modal)/(restaurant)/${item.id}`} asChild>
-            <TouchableOpacity style={styles.card}>
-              <Image source={{ uri: item.image_url ?? undefined }} style={styles.image} />
-              <View style={styles.info}>
-                <Text style={styles.name}>{item.name}</Text>
-                <Text style={styles.description} numberOfLines={2}>
-                  {item.description}
-                </Text>
-              </View>
-              <View style={styles.metadata}>
-                <Ionicons name="star" size={14} color="#f5a623" />
-                <Text style={styles.metadataText}>{item.rating.toFixed(1)}</Text>
-                <Text style={styles.dot}>•</Text>
-                <Ionicons name="time-outline" size={16} color={Colors.muted} />
-                <Text style={styles.metadataText}>
-                  {item.delivery_time_min}-{item.delivery_time_max} min
-                </Text>
-                <Text style={styles.dot}>•</Text>
-                <Ionicons name="bicycle-outline" size={16} color={Colors.muted} />
-                <Text style={styles.metadataText}>{item.delivery_fee.toFixed(2)} €</Text>
-                {!item.is_open && (
-                  <>
-                    <Text style={styles.dot}>•</Text>
-                    <Text style={styles.closedText}>Closed</Text>
-                  </>
-                )}
-              </View>
-            </TouchableOpacity>
-          </Link>
-        </View>
-      ))}
-    </>
+    <Animated.FlatList
+      data={restaurants}
+      renderItem={renderItem}
+      keyExtractor={keyExtractor}
+      onScroll={scrollHandler}
+      scrollEventThrottle={16}
+      showsVerticalScrollIndicator={false}
+      contentContainerStyle={contentContainerStyle}
+      ListHeaderComponent={ListHeaderComponent}
+      ListEmptyComponent={listEmpty}
+      onEndReached={onEndReached}
+      onEndReachedThreshold={0.5}
+      testID="restaurant-list"
+      ListFooterComponent={renderFooter()}
+    />
   );
 };
 
 const styles = StyleSheet.create({
-  card: {
-    margin: 16,
-    borderRadius: 12,
-    borderWidth: StyleSheet.hairlineWidth,
-    borderColor: Colors.light,
-    overflow: 'hidden',
-    boxShadow: '0px 4px 2px -2px rgba(0,0,0, 0.2)',
-    elevation: 2,
-  },
-  image: {
-    width: '100%',
-    height: 180,
-  },
-  info: {
-    padding: 12,
-  },
-  name: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 4,
-  },
-  description: {
-    fontSize: 14,
-    color: Colors.muted,
-  },
-  metadata: {
-    borderTopColor: Colors.light,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    flexDirection: 'row',
+  stateContainer: {
+    padding: 24,
     alignItems: 'center',
-    gap: 4,
-    padding: 10,
+    gap: 8,
   },
-  metadataText: {
-    fontSize: 13,
-    color: Colors.muted,
-  },
-  dot: {
-    color: '#999',
-    fontSize: 13,
-  },
-  closedText: {
-    fontSize: 13,
-    color: '#ff4646',
+  stateTitle: {
+    color: Colors.dark,
     fontWeight: '600',
+  },
+  stateBody: {
+    color: Colors.muted,
+    textAlign: 'center',
+  },
+  retryButton: {
+    marginTop: 8,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: Colors.primary,
+  },
+  retryButtonText: {
+    color: '#fff',
+    fontWeight: '600',
+  },
+  footer: {
+    paddingVertical: 20,
+    alignItems: 'center',
+    gap: 8,
   },
 });
+
 export default RestaurantList;
