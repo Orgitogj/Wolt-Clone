@@ -44,16 +44,20 @@ docker([
   IMAGE,
 ]);
 
-const deadline = Date.now() + 60000;
-let ready = false;
-while (Date.now() < deadline) {
-  if (tryDocker(['exec', CONTAINER, 'pg_isready', '-U', 'postgres', '-d', DB]).status === 0) {
-    ready = true;
-    break;
-  }
-  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 500);
+const sleep = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+
+const deadline = Date.now() + 120000;
+let stableChecks = 0;
+while (Date.now() < deadline && stableChecks < 3) {
+  const accepting =
+    tryDocker(['exec', CONTAINER, 'pg_isready', '-U', 'postgres', '-d', DB]).status === 0 &&
+    tryDocker([
+      'exec', CONTAINER, 'psql', '-U', 'postgres', '-d', DB, '-tAc', 'select 1',
+    ]).status === 0;
+  stableChecks = accepting ? stableChecks + 1 : 0;
+  if (stableChecks < 3) sleep(500);
 }
-if (!ready) fail('Postgres did not become ready within 60s.');
+if (stableChecks < 3) fail('Postgres did not become ready within 120s.');
 
 function runSql(file) {
   const sql = fs.readFileSync(file, 'utf8');
