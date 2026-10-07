@@ -2,14 +2,17 @@ import { PurchaseButton } from '@/components/buttons/PurchaseButton';
 import { Colors } from '@/constants/theme';
 import useAuthStore from '@/hooks/use-auth-store';
 import { useAddressSelectionStore } from '@/hooks/use-address-store';
-import { useCartStore } from '@/hooks/use-cartstore';
+import { useCartContents, useCartStore } from '@/hooks/use-cartstore';
 import { useScheduleStore } from '@/hooks/use-schedule-store';
 import { useAddresses } from '@/hooks/useAddresses';
 import { useInvalidateOrderHistory } from '@/hooks/useOrderHistory';
 import { usePayForOrder } from '@/hooks/usePayment';
 import { usePlatformSettings } from '@/hooks/usePlatformSettings';
+import { usePromoCode } from '@/hooks/usePromotions';
+import { PROMOTION_MESSAGES } from '@/services/promotionService';
 import { orderService } from '@/services/orderService';
 import { createIdempotencyKey } from '@/utils/idempotency';
+import { currentSessionEpoch, isStaleSession } from '@/utils/sessionGuard';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
 import { Stack, useRouter } from 'expo-router';
@@ -39,7 +42,8 @@ const TIP_PRESETS = [0, 1, 2, 5];
 const Page = () => {
   const router = useRouter();
   const { user } = useAuthStore();
-  const { items, total, selectedRestaurant, clearCart } = useCartStore();
+  const { items, total, selectedRestaurant, isRestored } = useCartContents();
+  const clearCart = useCartStore((state) => state.clearCart);
   const invalidateOrderHistory = useInvalidateOrderHistory();
   const { addresses, addAddress } = useAddresses();
   const { selectedAddressId, selectAddress } = useAddressSelectionStore();
@@ -63,6 +67,7 @@ const Page = () => {
   const [isLocating, setIsLocating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'card' | 'cash'>('cash');
+  const [promoInput, setPromoInput] = useState('');
 
   const selectedAddress = addresses.find((option) => option.id === selectedAddressId);
 
@@ -88,13 +93,20 @@ const Page = () => {
     () => orderService.calculateFees({ settings, deliveryMode, distanceKm }),
     [settings, deliveryMode, distanceKm]
   );
-  const grandTotal = total + serviceFee + deliveryFee + tipAmount;
+  const promo = usePromoCode(selectedRestaurant?.id, total);
+  const discount = promo.applied?.discountAmount ?? 0;
+  const grandTotal = Math.max(
+    0,
+    Number((total + serviceFee + deliveryFee + tipAmount - discount).toFixed(2))
+  );
   const currency = settings?.currency === 'EUR' ? '€' : (settings?.currency ?? '');
 
   const cardEnabled = !!settings?.card_payments_enabled;
   const effectivePaymentMethod = cardEnabled ? paymentMethod : 'cash';
   const scheduleIsValid = deliveryTime !== 'schedule' || !!selectedSchedule?.isoTimestamp;
   const canCheckout =
+    isRestored &&
+    items.length > 0 &&
     deliveryTime !== null &&
     scheduleIsValid &&
     !!settings &&
@@ -184,8 +196,10 @@ const Page = () => {
   };
 
   const handleCheckout = async () => {
-    if (!deliveryTime || !selectedRestaurant || !user) return;
+    if (!deliveryTime || !selectedRestaurant || !user || !isRestored) return;
+    if (items.length === 0) return;
 
+    const submittedEpoch = currentSessionEpoch();
     setIsSubmitting(true);
     try {
       const order = await orderService.createOrder({
@@ -200,10 +214,15 @@ const Page = () => {
         leaveAtDoor,
         sendAsGift,
         idempotencyKey: idempotencyKeyRef.current,
+        promoCode: promo.applied?.code ?? null,
       });
+
+      if (isStaleSession(submittedEpoch)) return;
 
       if (order.status === 'pending_payment') {
         const outcome = await pay(order.id, selectedRestaurant.name);
+
+        if (isStaleSession(submittedEpoch)) return;
 
         if (outcome.status === 'cancelled') {
           Alert.alert(
@@ -221,10 +240,13 @@ const Page = () => {
 
       idempotencyKeyRef.current = createIdempotencyKey();
       invalidateOrderHistory();
+      promo.clear();
+      setPromoInput('');
       clearCart();
       router.dismissTo('/restaurants');
       router.push(`/order/track?id=${order.id}`);
     } catch (error) {
+      if (isStaleSession(submittedEpoch)) return;
       Alert.alert('Order failed', error instanceof Error ? error.message : 'Please try again.');
     } finally {
       setIsSubmitting(false);
@@ -539,6 +561,63 @@ const Page = () => {
           </View>
 
           <View style={styles.section}>
+            <Text style={styles.promoTitle}>Promo code</Text>
+            {promo.applied ? (
+              <View style={styles.promoAppliedRow}>
+                <View style={styles.promoAppliedBadge}>
+                  <Ionicons name="pricetag" size={14} color={Colors.secondary} />
+                  <Text style={styles.promoAppliedCode}>{promo.applied.code}</Text>
+                </View>
+                <Text style={styles.promoAppliedText} numberOfLines={1}>
+                  {promo.applied.description ?? 'Discount applied'}
+                </Text>
+                <TouchableOpacity
+                  onPress={() => {
+                    promo.clear();
+                    setPromoInput('');
+                  }}
+                  accessibilityRole="button"
+                  testID="remove-promo">
+                  <Text style={styles.promoRemove}>Remove</Text>
+                </TouchableOpacity>
+              </View>
+            ) : (
+              <View style={styles.promoRow}>
+                <TextInput
+                  style={styles.promoInput}
+                  value={promoInput}
+                  onChangeText={(text) => setPromoInput(text.toUpperCase())}
+                  placeholder="Enter a code"
+                  placeholderTextColor={Colors.muted}
+                  autoCapitalize="characters"
+                  autoCorrect={false}
+                  editable={!promo.isChecking}
+                  testID="promo-input"
+                />
+                <TouchableOpacity
+                  style={[
+                    styles.promoApplyButton,
+                    (!promoInput.trim() || promo.isChecking) && styles.promoApplyDisabled,
+                  ]}
+                  disabled={!promoInput.trim() || promo.isChecking}
+                  onPress={async () => {
+                    const evaluation = await promo.apply(promoInput);
+                    if (evaluation && !evaluation.valid) {
+                      promo.setError(PROMOTION_MESSAGES[evaluation.reason]);
+                    }
+                  }}
+                  accessibilityRole="button"
+                  testID="apply-promo">
+                  <Text style={styles.promoApplyText}>
+                    {promo.isChecking ? 'Checking' : 'Apply'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            {!!promo.error && <Text style={styles.promoError}>{promo.error}</Text>}
+          </View>
+
+          <View style={styles.section}>
             <TouchableOpacity style={styles.summaryHeader} onPress={showHowFeesWork}>
               <Text style={styles.summaryHeaderText}>How fees work</Text>
               <Ionicons name="chevron-forward" size={16} color={Colors.secondary} />
@@ -563,6 +642,17 @@ const Page = () => {
               <View style={styles.summaryRow}>
                 <Text style={styles.summaryLabel}>Courier tip</Text>
                 <Text style={styles.summaryValue}>{tipAmount.toFixed(2)} {currency}</Text>
+              </View>
+            )}
+
+            {discount > 0 && (
+              <View style={styles.summaryRow}>
+                <Text style={styles.discountLabel}>
+                  Promo {promo.applied?.code}
+                </Text>
+                <Text style={styles.discountValue}>
+                  -{discount.toFixed(2)} {currency}
+                </Text>
               </View>
             )}
 
@@ -949,6 +1039,82 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: 15,
     color: '#000',
+  },
+  promoTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 10,
+  },
+  promoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  promoInput: {
+    flex: 1,
+    backgroundColor: Colors.background,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 15,
+  },
+  promoApplyButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    borderRadius: 10,
+    backgroundColor: Colors.secondary,
+  },
+  promoApplyDisabled: {
+    opacity: 0.5,
+  },
+  promoApplyText: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  promoAppliedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  promoAppliedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: Colors.primaryLight,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 10,
+  },
+  promoAppliedCode: {
+    fontWeight: '700',
+    color: Colors.secondary,
+    fontSize: 13,
+  },
+  promoAppliedText: {
+    flex: 1,
+    fontSize: 13,
+    color: Colors.muted,
+  },
+  promoRemove: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#B32433',
+  },
+  promoError: {
+    marginTop: 8,
+    fontSize: 13,
+    color: '#B32433',
+  },
+  discountLabel: {
+    fontSize: 14,
+    color: '#2C7A4B',
+    fontWeight: '600',
+  },
+  discountValue: {
+    fontSize: 14,
+    color: '#2C7A4B',
+    fontWeight: '700',
   },
   summaryTotal: {
     paddingTop: 12,
