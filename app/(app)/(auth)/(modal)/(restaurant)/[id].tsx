@@ -5,9 +5,10 @@ import { Colors } from '@/constants/theme';
 import type { Dish, Restaurant } from '@/types/database';
 import { useMenu } from '@/hooks/useMenu';
 import { useRestaurant } from '@/hooks/useRestaurants';
+import { useReviewSummary } from '@/hooks/useReviews';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
@@ -75,7 +76,9 @@ const Page = () => {
   const insets = useSafeAreaInsets();
   const categoryTabWidth = 100;
 
+  const router = useRouter();
   const { data: restaurant, isLoading: restaurantLoading } = useRestaurant(id || '');
+  const { data: reviewSummary } = useReviewSummary(id || '');
   const { data: menu, isLoading: menuLoading } = useMenu(id || '');
 
   const normalizedQuery = searchQuery.trim().toLowerCase();
@@ -299,7 +302,16 @@ const Page = () => {
                 <Text style={styles.restaurantName}>{restaurant.name}</Text>
                 <View style={styles.infoRow}>
                   <Ionicons name="star-outline" size={16} color="#666" />
-                  <Text style={styles.infoText}>{restaurant.rating}</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push(`/(modal)/(restaurant)/reviews?id=${restaurant.id}`)}
+                    accessibilityRole="button"
+                    testID="open-reviews">
+                    <Text style={styles.moreLink}>
+                      {reviewSummary && reviewSummary.review_count > 0
+                        ? `${reviewSummary.average_rating.toFixed(1)} (${reviewSummary.review_count} reviews)`
+                        : `${restaurant.rating} · Reviews`}
+                    </Text>
+                  </TouchableOpacity>
                   <Text style={styles.infoDot}>•</Text>
                   <Text style={styles.infoText}>{getOpenStatusText(restaurant)}</Text>
                   <Text style={styles.infoDot}>•</Text>

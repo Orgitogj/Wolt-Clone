@@ -231,7 +231,14 @@ const Page = () => {
           <Text style={styles.title}>{activeRestaurant?.name ?? 'Orders'}</Text>
           <Text style={styles.subtitle}>{showHistory ? 'Completed orders' : 'Live orders'}</Text>
         </View>
-        <View style={styles.backButton} />
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => router.push(`/merchant/reviews?id=${restaurantId ?? ''}`)}
+          accessibilityRole="button"
+          accessibilityLabel="Reviews"
+          testID="merchant-reviews-link">
+          <Ionicons name="star-outline" size={22} color={Colors.secondary} />
+        </TouchableOpacity>
       </View>
 
       {restaurants.length > 1 && (
