@@ -16,10 +16,31 @@ interface AuthState {
   ) => Promise<{ error: string | null; needsEmailConfirmation: boolean }>;
   signInAnonymously: () => Promise<{ error: string | null }>;
   signInWithOAuth: (provider: 'apple' | 'google' | 'facebook') => Promise<{ error: string | null }>;
-  signOut: () => Promise<void>;
+  signOut: () => Promise<{ error: string | null }>;
 }
 
-const useAuthStore = create<AuthState>((set) => {
+const CARRY_OVER_TTL_MS = 15 * 60 * 1000;
+
+let cartCarryOver: { userId: string; expiresAt: number } | null = null;
+
+export const markCartCarryOver = (anonymousUserId: string, now = Date.now()) => {
+  cartCarryOver = { userId: anonymousUserId, expiresAt: now + CARRY_OVER_TTL_MS };
+};
+
+export const clearCartCarryOver = () => {
+  cartCarryOver = null;
+};
+
+export const consumeCartCarryOver = (previousUserId: string | null, now = Date.now()): boolean => {
+  const pending = cartCarryOver;
+  cartCarryOver = null;
+
+  if (!pending || !previousUserId) return false;
+  if (pending.expiresAt <= now) return false;
+  return pending.userId === previousUserId;
+};
+
+const useAuthStore = create<AuthState>((set, get) => {
   supabase.auth.getSession().then(({ data }) => {
     set({
       session: data.session,
@@ -45,11 +66,17 @@ const useAuthStore = create<AuthState>((set) => {
     isAnonymous: false,
 
     signInWithEmail: async (email, password) => {
+      clearCartCarryOver();
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       return { error: error?.message ?? null };
     },
 
     signUpWithEmail: async (email, password, fullName) => {
+      const { user, isAnonymous } = get();
+      if (isAnonymous && user) {
+        markCartCarryOver(user.id);
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
@@ -60,11 +87,16 @@ const useAuthStore = create<AuthState>((set) => {
         },
       });
 
+      if (error) {
+        consumeCartCarryOver(user?.id ?? null);
+      }
+
       const needsEmailConfirmation = !error && !data.session;
       return { error: error?.message ?? null, needsEmailConfirmation };
     },
 
     signInAnonymously: async () => {
+      clearCartCarryOver();
       const { error } = await supabase.auth.signInAnonymously();
       if (error && /disabled|not enabled/i.test(error.message)) {
         return {
@@ -76,12 +108,15 @@ const useAuthStore = create<AuthState>((set) => {
     },
 
     signInWithOAuth: async (provider) => {
+      clearCartCarryOver();
       const { error } = await supabase.auth.signInWithOAuth({ provider });
       return { error: error?.message ?? null };
     },
 
     signOut: async () => {
-      await supabase.auth.signOut();
+      clearCartCarryOver();
+      const { error } = await supabase.auth.signOut();
+      return { error: error?.message ?? null };
     },
   };
 });

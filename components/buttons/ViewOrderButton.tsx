@@ -1,6 +1,6 @@
 import { Colors } from '@/constants/theme';
 import type { Restaurant } from '@/types/database';
-import { useCartStore } from '@/hooks/use-cartstore';
+import { useCartStore, useCartSummary } from '@/hooks/use-cartstore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -13,7 +13,8 @@ interface ViewOrderButtonProps {
 const ViewOrderButton = ({ restaurant }: ViewOrderButtonProps) => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { totalItems, total, setSelectedRestaurant } = useCartStore();
+  const { totalItems, total } = useCartSummary();
+  const setSelectedRestaurant = useCartStore((state) => state.setSelectedRestaurant);
 
   if (totalItems === 0) {
     return null;

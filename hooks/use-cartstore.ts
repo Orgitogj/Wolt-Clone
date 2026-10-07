@@ -1,3 +1,4 @@
+import { useSessionStore } from '@/hooks/use-session-store';
 import type { Dish, Restaurant, SelectedAddon } from '@/types/database';
 import zustandStorage from '@/utils/zustandStorage';
 import { create } from 'zustand';
@@ -126,3 +127,29 @@ export const useCartStore = create<CartStore>()(
     }
   )
 );
+
+export const useCartSummary = () => {
+  const isRestored = useSessionStore((state) => state.isRestored);
+  const totalItems = useCartStore((state) => state.totalItems);
+  const total = useCartStore((state) => state.total);
+
+  return {
+    isRestored,
+    totalItems: isRestored ? totalItems : 0,
+    total: isRestored ? total : 0,
+  };
+};
+
+export const useCartContents = () => {
+  const isRestored = useSessionStore((state) => state.isRestored);
+  const items = useCartStore((state) => state.items);
+  const total = useCartStore((state) => state.total);
+  const selectedRestaurant = useCartStore((state) => state.selectedRestaurant);
+
+  return {
+    isRestored,
+    items: isRestored ? items : [],
+    total: isRestored ? total : 0,
+    selectedRestaurant: isRestored ? selectedRestaurant : null,
+  };
+};

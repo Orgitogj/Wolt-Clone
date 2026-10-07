@@ -1,4 +1,6 @@
 import { usePushRegistration } from '@/hooks/useNotifications';
+import { useNotificationRouting } from '@/hooks/useNotificationRouting';
+import { useSessionIsolation } from '@/hooks/useSessionIsolation';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Slot } from 'expo-router';
@@ -29,7 +31,9 @@ Sentry.init({
 const STRIPE_PUBLISHABLE_KEY = process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY;
 
 const AppShell = () => {
+  useSessionIsolation();
   usePushRegistration();
+  useNotificationRouting();
 
   if (!STRIPE_PUBLISHABLE_KEY) {
     return <Slot />;

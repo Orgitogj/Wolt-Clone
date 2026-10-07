@@ -1,5 +1,5 @@
 import { Colors } from '@/constants/theme';
-import { useCartStore } from '@/hooks/use-cartstore';
+import { useCartSummary } from '@/hooks/use-cartstore';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Link } from 'expo-router';
 import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
@@ -7,7 +7,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const CheckoutButton = () => {
   const insets = useSafeAreaInsets();
-  const { totalItems, total } = useCartStore();
+  const { totalItems, total } = useCartSummary();
 
   if (totalItems === 0) {
     return null;
