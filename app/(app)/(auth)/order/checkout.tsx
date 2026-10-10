@@ -1,4 +1,5 @@
 import { AddressSection } from '@/components/checkout/AddressSection';
+import { CartValidationBanner } from '@/components/checkout/CartValidationBanner';
 import { DeliveryOptionsSection } from '@/components/checkout/DeliveryOptionsSection';
 import { OrderSummary } from '@/components/checkout/OrderSummary';
 import { PaymentSection } from '@/components/checkout/PaymentSection';
@@ -72,6 +73,7 @@ const Page = () => {
         keyboardShouldPersistTaps="handled"
         keyboardDismissMode="on-drag">
         <View style={styles.contentContainer}>
+          <CartValidationBanner state={checkout.cart} />
           <AddressSection delivery={checkout.delivery} address={checkout.address} />
           <DeliveryOptionsSection delivery={checkout.delivery} />
           <ScheduleSection schedule={checkout.schedule} />

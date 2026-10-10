@@ -1,8 +1,10 @@
 import CheckoutButton from '@/components/buttons/CheckoutButton';
+import { CartValidationBanner } from '@/components/checkout/CartValidationBanner';
 import OrderItem from '@/components/OrderItem';
 import { RecommendedDish } from '@/components/RecommendedDish';
 import { Colors } from '@/constants/theme';
 import { useCartContents } from '@/hooks/use-cartstore';
+import { useCartValidation } from '@/hooks/useCartValidation';
 import { usePopularDishes } from '@/hooks/useMenu';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,6 +22,7 @@ const Page = () => {
   const router = useRouter();
   const { top } = useSafeAreaInsets();
   const { items, selectedRestaurant, isRestored } = useCartContents();
+  const cart = useCartValidation();
 
   const { data: recommendedDishes } = usePopularDishes(selectedRestaurant?.id ?? '');
 
@@ -49,6 +52,8 @@ const Page = () => {
       </View>
 
       <ScrollView style={styles.content} contentContainerStyle={styles.scrollContent}>
+        <CartValidationBanner state={cart} />
+
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectiontitle}>Order items</Text>
