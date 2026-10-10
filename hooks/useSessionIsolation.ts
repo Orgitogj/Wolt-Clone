@@ -45,7 +45,7 @@ export const useSessionIsolation = () => {
     useSessionStore.getState().setRestored(false);
 
     pending.current = pending.current
-      .then(() => resetUserScopedState(queryClient, { preserveCart }))
+      .then(() => resetUserScopedState(queryClient, { preserveCart, signedOut: accountKey === null }))
       .then(() => {
         useSessionStore.getState().setOwnerKey(accountKey);
         useSessionStore.getState().setEpoch(epoch);

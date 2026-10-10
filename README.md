@@ -13,7 +13,8 @@ This repository contains a mobile app inspired by the Wolt experience. It demons
 - Supabase authentication, storage, and database integration
 - A restaurant browsing experience with categories, menus, and dish details
 - Order creation, history, and favorite restaurant support
-- Persistent session storage via Async Storage
+- Persistent session storage encrypted at rest: the session is AES encrypted into Async Storage
+  and its key is held in the device keychain via `expo-secure-store`
 
 The app is structured to separate UI, data access, and business logic. It uses a Supabase backend for authentication and a relational schema that supports real-world food delivery requirements.
 
@@ -26,6 +27,7 @@ The app is structured to separate UI, data access, and business logic. It uses a
 - `zustand`
 - `expo-linear-gradient`
 - `expo-location` and `react-native-maps`
+- `expo-secure-store` and `aes-js` for session storage encrypted at rest
 - `typescript`
 
 ## Database Schema
