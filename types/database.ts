@@ -890,3 +890,32 @@ export interface SupportReportDraftItem {
 }
 
 export type SupportAssignmentFilter = 'all' | 'unassigned' | 'mine';
+
+export interface CartValidationLine {
+  dish_id: string;
+  dish_name: string | null;
+  quantity: number;
+  dish_found: boolean;
+  is_available: boolean;
+  quantity_valid: boolean;
+  base_price: number;
+  unit_price: number;
+  requested_unit_price: number | null;
+  price_changed: boolean;
+  addons: SelectedAddon[];
+  missing_addon_ids: string[];
+  line_total: number;
+}
+
+export interface CartValidation {
+  restaurant_id: string;
+  restaurant_name: string;
+  is_open: boolean;
+  min_order: number;
+  currency: string;
+  max_item_quantity: number;
+  subtotal: number;
+  meets_min_order: boolean;
+  has_changes: boolean;
+  lines: CartValidationLine[];
+}

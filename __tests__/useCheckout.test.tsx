@@ -83,6 +83,22 @@ jest.mock('@/hooks/usePlatformSettings', () => ({
   usePlatformSettings: () => mockSettingsState,
 }));
 
+const mockCartValidation = {
+  validation: undefined as unknown,
+  notices: [] as string[],
+  isChecking: false,
+  error: null as unknown,
+  needsReview: false,
+  isAcknowledged: false,
+  acknowledge: jest.fn(),
+  updateCart: jest.fn(),
+  recheck: jest.fn(),
+};
+
+jest.mock('@/hooks/useCartValidation', () => ({
+  useCartValidation: () => mockCartValidation,
+}));
+
 const mockCreateOrder = jest.fn();
 
 jest.mock('@/services/orderService', () => {
@@ -130,6 +146,9 @@ beforeEach(() => {
   mockSettingsState.data = { ...mockSettings };
   useAddressSelectionStore.setState({ selectedAddressId: 'addr-1' });
   mockCreateOrder.mockResolvedValue({ id: 'order-1', status: 'pending' });
+  mockCartValidation.needsReview = false;
+  mockCartValidation.isAcknowledged = false;
+  mockCartValidation.notices = [];
   mockPay.mockResolvedValue({ status: 'succeeded' });
   jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
 });
@@ -232,6 +251,41 @@ describe('what blocks placing an order', () => {
     });
 
     expect(mockCreateOrder).not.toHaveBeenCalled();
+  });
+});
+
+describe('a basket that changed', () => {
+  it('blocks the order until the customer has seen the change', async () => {
+    mockCartValidation.needsReview = true;
+
+    const view = await readyToPlace();
+
+    expect(view.result.current.submission.canPlace).toBe(false);
+  });
+
+  it('allows the order once the change is acknowledged', async () => {
+    mockCartValidation.needsReview = true;
+    mockCartValidation.isAcknowledged = true;
+
+    const view = await readyToPlace();
+
+    expect(view.result.current.submission.canPlace).toBe(true);
+  });
+
+  it('allows the order when nothing changed', async () => {
+    const view = await readyToPlace();
+
+    expect(view.result.current.submission.canPlace).toBe(true);
+  });
+
+  it('exposes the basket state to the screen', async () => {
+    mockCartValidation.needsReview = true;
+    mockCartValidation.notices = ['Prices changed'];
+
+    const view = await readyToPlace();
+
+    expect(view.result.current.cart.needsReview).toBe(true);
+    expect(view.result.current.cart.notices).toEqual(['Prices changed']);
   });
 });
 

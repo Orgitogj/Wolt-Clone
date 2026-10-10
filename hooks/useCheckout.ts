@@ -1,5 +1,6 @@
 import useAuthStore from '@/hooks/use-auth-store';
 import { useAddressSelectionStore } from '@/hooks/use-address-store';
+import { useCartValidation, type CartValidationState } from '@/hooks/useCartValidation';
 import { useCartContents, useCartStore } from '@/hooks/use-cartstore';
 import { useScheduleStore } from '@/hooks/use-schedule-store';
 import { useAddresses } from '@/hooks/useAddresses';
@@ -107,6 +108,7 @@ export interface CheckoutSubmission {
 
 export interface Checkout {
   restaurant: Restaurant | null;
+  cart: CartValidationState;
   delivery: CheckoutDelivery;
   address: CheckoutAddress;
   schedule: CheckoutSchedule;
@@ -129,6 +131,7 @@ export const useCheckout = (): Checkout => {
   const { data: settings } = usePlatformSettings();
   const idempotencyKeyRef = useRef<string>(createIdempotencyKey());
   const { pay, isPaying } = usePayForOrder();
+  const cart = useCartValidation();
 
   const [deliveryMode, setDeliveryMode] = useState<DeliveryMode>('delivery');
   const [leaveAtDoor, setLeaveAtDoor] = useState(false);
@@ -181,12 +184,14 @@ export const useCheckout = (): Checkout => {
   const cardEnabled = !!settings?.card_payments_enabled;
   const effectivePaymentMethod: PaymentMethod = cardEnabled ? paymentMethod : 'cash';
   const scheduleIsValid = deliveryTime !== 'schedule' || !!selectedSchedule?.isoTimestamp;
+  const cartNeedsReview = cart.needsReview && !cart.isAcknowledged;
   const canCheckout =
     isRestored &&
     items.length > 0 &&
     deliveryTime !== null &&
     scheduleIsValid &&
     !!settings &&
+    !cartNeedsReview &&
     (deliveryMode === 'pickup' || !!selectedAddress);
 
   const handleUseCurrentLocation = useCallback(async () => {
@@ -352,6 +357,7 @@ export const useCheckout = (): Checkout => {
 
   return {
     restaurant: selectedRestaurant,
+    cart,
     delivery: {
       mode: deliveryMode,
       setMode: setDeliveryMode,
